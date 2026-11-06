@@ -1,0 +1,102 @@
+[
+  {
+    "domain": {
+      "name": "ARPK",
+      "version": "1",
+      "salt": "6130ef1f1ead8aa80013c333d7398bb3d3e472498b8822208fa6ba74b21ce166"
+    },
+    "receipt": {
+      "agentId": "eeba55baadfe798048bef836ec12e20dd6a8aa4b9f6572e740f30ae14e417f8e",
+      "sessionId": "39a561f7d32ebdce72ded3ce2ce9d064",
+      "class": 1,
+      "actionHash": "a11df5161c46acf26b79e0251e916cccf29f354ab87adc1e2dc9945feecfe9b8",
+      "manifestHash": "1bd8767b931ea2b41873e65aa2e8650214ecf984b2651b6047c7ab857060d294",
+      "contextHash": "6ed2201a8c73b191cae2934170e96fd3708772e28ec65b4b1a458948510a25a5",
+      "verdict": 1,
+      "nonce": "a84b78ac4d9de04a3de292bbb724574e",
+      "issuedMs": 1762400000000,
+      "expiryMs": 1762400120000
+    },
+    "digest": "5c40552d1c5caed0c16751443d8d6371e2b7b021c4522944363e5bcc5af9c065"
+  },
+  {
+    "domain": {
+      "name": "ARPK",
+      "version": "1",
+      "salt": "2311f43496b97d14d729986572e8f8df12012e159a18afed9e510177b484206f"
+    },
+    "receipt": {
+      "agentId": "07504ab813e9b933330d719e98601f8e63b0645ab49b59af69153721578bde61",
+      "sessionId": "bc9df31729ff71149b524a47937c9e6d",
+      "class": 1,
+      "actionHash": "5a802467073eb385afe4acf3023a664df3d98ccda93d8a453277fca5fd2aff61",
+      "manifestHash": "bf8a15bf7d4729132d0caa7ea829d9d67339b9844e399953651324993f77e09b",
+      "contextHash": "339a98b28218e0ad7f74a49d0fc068731ec497f82d3e898da24a4d8cf8fd6e05",
+      "verdict": 1,
+      "nonce": "b6d7f559f14ce5cd5c261c58d4917fd3",
+      "issuedMs": 1762400001000,
+      "expiryMs": 1762400121000
+    },
+    "digest": "b826aa78593b91c3685dab2e3ef0d278b2a06479cf7abf08731f14fa0d1c62f2"
+  },
+  {
+    "domain": {
+      "name": "ARPK",
+      "version": "1",
+      "salt": "f6b1ecef013f4dc1b9d85fe48fbc5dc731ecbf4f7490bb717c8fd11a038a6567"
+    },
+    "receipt": {
+      "agentId": "ce286c42006a4641ef273c320e07b3ac364f72db81df1817ebfc1c9c809c3524",
+      "sessionId": "9d38f70778ce98c3cfe947f138174192",
+      "class": 1,
+      "actionHash": "cc08f2cc8e23746ae97e5229b06bceda4ea6d91c63d7ab9da0a7d7cf6437709f",
+      "manifestHash": "eb2c45406421df50e480f01a491ccaa53d784ffa2f236844220fe29b702ebe46",
+      "contextHash": "8d7038515f2c525a58a4b7f217e11a0fd1dfc7c4c88f1c8d5d441e504d590b53",
+      "verdict": 1,
+      "nonce": "6093d85438575889eb50865c18af5685",
+      "issuedMs": 1762400002000,
+      "expiryMs": 1762400122000
+    },
+    "digest": "fd0b8451106987ebec00a1ec92d767609666365bc4f0a98e9bba3db0a783e01c"
+  },
+  {
+    "domain": {
+      "name": "ARPK",
+      "version": "1",
+      "salt": "5083030840eb1e438625916c24293bcf29cf148c54cf851b87ac2d8461c3a079"
+    },
+    "receipt": {
+      "agentId": "5834bc71e2129d775980aebfaff3ba0d43fa37fdd22e39c25abf332ab53f1807",
+      "sessionId": "a996c6155d59d24164c43eb2c31ea18a",
+      "class": 1,
+      "actionHash": "bf930f6de14aab5c99ac921ef68de940e7f16a10ac7a76056f84dadd05361753",
+      "manifestHash": "5c545e0405f63cde99c8ab4a11a3efbc79c033ab9ba947a50b5b7160858f1831",
+      "contextHash": "22487ad76af3639191e024b3cad05cca5d0efd0a887d5d3a7a1b6a9b05d1afcd",
+      "verdict": 1,
+      "nonce": "ad902a54a16df24417220eaf452e30fc",
+      "issuedMs": 1762400003000,
+      "expiryMs": 1762400123000
+    },
+    "digest": "647974ed774cb840d95eed1cef6fb865a60988d475ce6201fee348da3f695ad9"
+  },
+  {
+    "domain": {
+      "name": "ARPK",
+      "version": "1",
+      "salt": "6f247657e06f00fcaa1db49acc14bc5033b7b85d12d392d0a59514fb17eda338"
+    },
+    "receipt": {
+      "agentId": "7d50779cd959e2dd973d8c2c548c61349c6ecb1684d3891213972fe7cd08217c",
+      "sessionId": "4f33c39e2e320d745ab370c8530282af",
+      "class": 1,
+      "actionHash": "3d9f683c993486b19d22dfc1febd11ac5a9cf3a8c1c849b7eaac6e464a2a1491",
+      "manifestHash": "63c5cfbe52b41c14a9fb66b190092522642aefc6893798ec46f5635e330b7007",
+      "contextHash": "2e58471e134c09a43f3b07c1f230bde0a843318af12b89973b1b4407f01410fa",
+      "verdict": 1,
+      "nonce": "fa6d0ed8ae92d73276193a46ae1846c8",
+      "issuedMs": 1762400004000,
+      "expiryMs": 1762400124000
+    },
+    "digest": "96148305492ff3fc93246f58a21d7ada518cba8f4f7294d191854e9fbd2480e9"
+  }
+]

@@ -1,0 +1,83 @@
+{
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13) (built from a source tarball)",
+  "tests_passed": [
+    "b02_forged_signature_is_rejected",
+    "b03_replay_is_rejected",
+    "b04_expired_receipt_is_rejected",
+    "b05_receipt_for_other_action_is_rejected",
+    "b06_tampered_amount_is_rejected",
+    "b07_revoked_agent_is_rejected",
+    "b08_manifest_hash_mismatch_is_rejected",
+    "b17_paused_venue_is_rejected",
+    "b18_amount_at_threshold_requires_approval",
+    "b20_ttl_above_max_is_rejected",
+    "b21_revoked_kernel_key_is_rejected",
+    "b24_venue_exposure_cap_is_enforced",
+    "b25_bucket_bound_is_exact",
+    "b26_u128_max_amount_is_rejected",
+    "bound_holds_for_any_operation_sequence",
+    "bucket::tests::capacity_is_never_exceeded",
+    "bucket::tests::saturation_only_raises_to_capacity",
+    "bucket::tests::time_regression_is_rejected",
+    "caps::tests::overflow_is_rejected_not_wrapped",
+    "caps::tests::pct_cap_is_enforced",
+    "caps::tests::pct_overflow_is_rejected",
+    "caps::tests::per_call_cap_is_enforced",
+    "domain_separator_depends_on_salt",
+    "golden_vectors_match_independent_implementation",
+    "rejected_take_consumes_nothing",
+    "saturation_never_exceeds_capacity",
+    "time_regression_is_rejected",
+    "transfers_value_with_a_valid_receipt"
+  ],
+  "claims": {
+    "C0": {
+      "statement": "Value out over any interval is bounded by capacity + refill*dt; each transfer respects per-call and %-of-balance caps. Holds even if the kernel is malicious.",
+      "status": "PASS",
+      "missing_tests": [],
+      "tier": "local"
+    },
+    "C1": {
+      "statement": "No value moves without a valid, unexpired, unreplayed receipt bound to the exact action and the on-chain manifest.",
+      "status": "PASS",
+      "missing_tests": [],
+      "tier": "local"
+    },
+    "C2": {
+      "statement": "The agent plane holds an empty capability set and reaches only the kernel socket.",
+      "status": "SKIP",
+      "reason": "not built in this window",
+      "tier": "ci-containment"
+    },
+    "C3": {
+      "statement": "Untrusted ingress shrinks authority.",
+      "status": "SKIP",
+      "reason": "not built in this window",
+      "tier": "ci-sandbox"
+    },
+    "C4": {
+      "statement": "Revocation is immediate for on-chain value.",
+      "status": "PASS",
+      "missing_tests": [],
+      "tier": "local"
+    },
+    "C5": {
+      "statement": "Kernel failure or policy error produces no effect.",
+      "status": "SKIP",
+      "reason": "not built in this window",
+      "tier": "ci-sandbox"
+    },
+    "C6": {
+      "statement": "Evaluation is verifiable downstream from the receipt and the audit chain.",
+      "status": "PASS",
+      "missing_tests": [],
+      "tier": "local"
+    },
+    "C7": {
+      "statement": "A paused venue is unreachable and venue exposure is capped.",
+      "status": "PASS",
+      "missing_tests": [],
+      "tier": "local"
+    }
+  }
+}

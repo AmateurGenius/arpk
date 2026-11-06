@@ -1,0 +1,49 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # Local tier: pure Rust + wasm. Mirrors `make verify`.
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - name: arpk-core model tests
+        run: cargo test -p arpk-core
+      - name: vault native tests
+        run: cargo test --manifest-path contracts/near-vault/Cargo.toml
+
+  # The contract must compile to wasm with the pinned toolchain.
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - run: rustup target add wasm32-unknown-unknown
+      - run: cargo build --manifest-path contracts/near-vault/Cargo.toml --target wasm32-unknown-unknown --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vault-wasm
+          path: contracts/near-vault/target/wasm32-unknown-unknown/release/near_vault.wasm
+
+  # CI tier: the near-workspaces sandbox binary is glibc-only, so it cannot run on
+  # Termux/Bionic. Enabled in WP1b when the sandbox tests are written.
+  # sandbox:
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     SANDBOX_ARTIFACT_URL: https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/Linux-x86_64/2.14.0/near-sandbox.tar.gz
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: dtolnay/rust-toolchain@1.99.1
+  #     - run: cargo test --manifest-path contracts/near-vault/Cargo.toml --features sandbox
+
+  # CI tier: Docker containment. Enabled in WP2.
+  # containment:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: docker compose -f deploy/docker-compose.yml up -d
+  #     - run: docker compose -f deploy/docker-compose.yml exec -T agent /usr/local/bin/capability-inventory.sh

@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["crates/arpk-core", "kernel"]
+exclude = ["contracts/near-vault"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+arpk-core = { path = "crates/arpk-core" }

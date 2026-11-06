@@ -1,0 +1,12 @@
+[package]
+name = "arpk-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "ARPK executable specification: bound, caps, reason codes, EIP-712 receipts."
+
+[dependencies]
+
+[dev-dependencies]
+proptest = "1.12"
+sha3 = "0.10"

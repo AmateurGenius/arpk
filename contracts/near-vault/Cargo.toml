@@ -1,0 +1,17 @@
+[package]
+name = "near-vault"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "ARPK NEAR vault: bounded value movement enforced by receipts."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = { version = "5.30.1", features = ["unstable", "unit-testing"] }
+arpk-core = { path = "../../crates/arpk-core" }
+
+[dev-dependencies]
+k256 = { version = "0.14", features = ["ecdsa"] }
+sha3 = "0.10"

@@ -1,0 +1,21 @@
+[package]
+name = "arpkd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "ARPK kernel daemon: policy decision point, receipt signer, audit chain."
+
+[[bin]]
+name = "arpkd"
+path = "src/main.rs"
+
+[dependencies]
+arpk-core = { path = "../crates/arpk-core" }
+k256 = { version = "0.14", features = ["ecdsa"] }
+sha3 = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+cedar-policy = "4.14"
+
+[dev-dependencies]
+proptest = "1.12"
