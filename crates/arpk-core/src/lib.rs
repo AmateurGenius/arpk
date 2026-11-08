@@ -33,3 +33,11 @@ pub mod class {
 pub mod verdict {
     pub const ALLOW: u8 = 1;
 }
+
+/// Receipt TTL ceiling in milliseconds. The contract enforces this; the kernel never
+/// signs a receipt that exceeds it, so a kernel-signed receipt can never be rejected
+/// for its TTL.
+pub const MAX_RECEIPT_TTL_MS: u64 = 120_000;
+
+/// Clock-skew tolerance in milliseconds: a receipt may be signed this far in the future.
+pub const SKEW_MS: u64 = 30_000;

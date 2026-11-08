@@ -10,13 +10,11 @@
 use arpk_core::bucket::Bucket;
 use arpk_core::codes::Code;
 use arpk_core::eip712::{digest, hash_value_action, Domain, Receipt as CoreReceipt};
-use arpk_core::{class, verdict, Keccak, ValueCaps};
+use arpk_core::{class, verdict, Keccak, ValueCaps, MAX_RECEIPT_TTL_MS, SKEW_MS};
 use near_sdk::json_types::{U128, U64};
 use near_sdk::store::{IterableMap, LookupMap, UnorderedSet};
 use near_sdk::{env, near, require, AccountId, NearToken, PanicOnDefault, Promise};
 
-pub const MAX_RECEIPT_TTL_MS: u64 = 120_000;
-pub const SKEW_MS: u64 = 30_000;
 pub const NS_PER_MS: u64 = 1_000_000;
 
 /// Keccak-256 backed by the NEAR host function.

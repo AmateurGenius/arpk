@@ -141,11 +141,12 @@ pub fn entities(
     venue_id: &str,
     venue_paused: bool,
     with_principal: bool,
+    agent_tier: &str,
 ) -> Entities {
     let mut items = Vec::new();
     if with_principal {
         items.push(format!(
-            r#"{{"uid":{{"type":"Agent","id":{agent_id:?}}},"attrs":{{"agent_id":{agent_id:?},"tier":"standard"}},"parents":[]}}"#
+            r#"{{"uid":{{"type":"Agent","id":{agent_id:?}}},"attrs":{{"agent_id":{agent_id:?},"tier":{agent_tier:?}}},"parents":[]}}"#
         ));
     }
     items.push(format!(
@@ -172,7 +173,7 @@ mod tests {
     fn full_authority_permits_a_live_transfer() {
         let pdp = Pdp::load().unwrap();
         let req = request("agent-0", "venue-0", "full", false, Some(1_000));
-        let entities = entities("agent-0", "venue-0", false, true);
+        let entities = entities("agent-0", "venue-0", false, true, "standard");
         assert_eq!(pdp.evaluate(&req, &entities), Verdict::Allow);
     }
 
@@ -180,7 +181,7 @@ mod tests {
     fn paused_venue_denies_with_action_not_permitted() {
         let pdp = Pdp::load().unwrap();
         let req = request("agent-0", "venue-0", "full", false, Some(1_000));
-        let entities = entities("agent-0", "venue-0", true, true);
+        let entities = entities("agent-0", "venue-0", true, true, "standard");
         assert_eq!(
             pdp.evaluate(&req, &entities),
             Verdict::Deny(Code::ActionNotPermitted)
@@ -198,7 +199,7 @@ mod tests {
     fn forced_error_denies_with_the_exact_code() {
         let pdp = Pdp::load().unwrap();
         let req = request("agent-0", "venue-0", "full", false, Some(1_000));
-        let entities = entities("agent-0", "venue-0", false, false);
+        let entities = entities("agent-0", "venue-0", false, false, "standard");
         assert_eq!(
             pdp.evaluate(&req, &entities),
             Verdict::Deny(Code::PolicyEvalError)
@@ -212,7 +213,7 @@ mod tests {
     fn missing_context_amount_is_also_a_forced_error() {
         let pdp = Pdp::load().unwrap();
         let req = request("agent-0", "venue-0", "degraded", false, None);
-        let entities = entities("agent-0", "venue-0", false, true);
+        let entities = entities("agent-0", "venue-0", false, true, "standard");
         assert_eq!(
             pdp.evaluate(&req, &entities),
             Verdict::Deny(Code::PolicyEvalError)
