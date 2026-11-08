@@ -17,7 +17,8 @@ setup:
 verify:
 	cargo test -p arpk-core
 	cargo test -p arpkd
-	cargo test --manifest-path $(CONTRACT)/Cargo.toml
+	# 8 property cases: each case stands up a full contract, which is slow on Android.
+	PROPTEST_CASES=8 cargo test --manifest-path $(CONTRACT)/Cargo.toml
 
 verify-full: verify
 	cargo test --release -p arpk-core

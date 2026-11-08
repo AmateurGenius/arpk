@@ -12,7 +12,7 @@ use arpk_core::codes::Code;
 use arpk_core::eip712::{digest, hash_value_action, Domain, Receipt as CoreReceipt};
 use arpk_core::{class, verdict, Keccak, ValueCaps, MAX_RECEIPT_TTL_MS, SKEW_MS};
 use near_sdk::json_types::{U128, U64};
-use near_sdk::store::{IterableMap, LookupMap, UnorderedSet};
+use near_sdk::store::{IterableMap, IterableSet, LookupMap};
 use near_sdk::{env, near, require, AccountId, NearToken, PanicOnDefault, Promise};
 
 pub const NS_PER_MS: u64 = 1_000_000;
@@ -42,7 +42,7 @@ pub struct Vault {
     kernel_keys: LookupMap<Vec<u8>, KernelKey>,
     used_nonces: IterableMap<Vec<u8>, u64>,
     approvals: LookupMap<Vec<u8>, Approval>,
-    paused_venues: UnorderedSet<String>,
+    paused_venues: IterableSet<String>,
 }
 
 #[near(serializers = [json, borsh])]
@@ -204,7 +204,7 @@ impl Vault {
             kernel_keys: LookupMap::new(b"k"),
             used_nonces: IterableMap::new(b"n"),
             approvals: LookupMap::new(b"p"),
-            paused_venues: UnorderedSet::new(b"v"),
+            paused_venues: IterableSet::new(b"v"),
         }
     }
 

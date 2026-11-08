@@ -21,3 +21,4 @@ arpk-core = { path = "../../crates/arpk-core" }
 [dev-dependencies]
 k256 = { version = "0.14", features = ["ecdsa"] }
 sha3 = "0.10"
+proptest = "1.12"

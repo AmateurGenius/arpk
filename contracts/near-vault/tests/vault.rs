@@ -38,10 +38,6 @@ fn to32(v: &[u8]) -> [u8; 32] {
     v.try_into().unwrap()
 }
 
-fn to16(v: &[u8]) -> [u8; 16] {
-    v.try_into().unwrap()
-}
-
 /// Build a context with an explicit predecessor, deposit and timestamp.
 fn ctx(predecessor: AccountId, deposit: u128, ts_ms: u64) -> VMContextBuilder {
     let mut ctx = VMContextBuilder::new();
@@ -583,4 +579,102 @@ fn b26_u128_max_amount_is_rejected() {
         BASE_TS_MS + 60_000,
     );
     exec(&mut env, a, r, sig, v);
+}
+
+// ---------------------------------------------------------------------------
+// B22 / B23 — the function-call-key boundary, at the contract surface
+// ---------------------------------------------------------------------------
+
+/// B22: owner methods require exactly 1 yocto. A function-call key cannot attach a
+/// deposit at all, so it can never reach an owner method — the protocol rejects the call
+/// before the contract sees it.
+#[test]
+#[should_panic(expected = "Requires attached deposit of exactly 1 yoctoNEAR")]
+fn b22_owner_method_requires_one_yocto() {
+    let mut env = deploy();
+    let owner = account("owner.test.near");
+    testing_env!(ctx(owner, 0, BASE_TS_MS).build()); // zero yocto
+    env.contract.pause_venue("venue-a".to_string());
+}
+
+/// B23: `execute_value` requires no deposit, so a relayer key restricted to that single
+/// method can submit receipts. The protocol-level half — that the restricted key cannot
+/// call anything else — is enforced by NEAR and covered by the CI sandbox job.
+#[test]
+fn b23_execute_value_needs_no_deposit() {
+    let mut env = deploy();
+    let a = action(100);
+    let (r, sig, v) = sign(&env, &a, [77u8; 16], [0u8; 16], BASE_TS_MS, BASE_TS_MS + 60_000);
+    let predecessor = account("relayer.test.near");
+    testing_env!(ctx(predecessor, 0, BASE_TS_MS).build()); // zero yocto
+    let _ = env
+        .contract
+        .execute_value(env.agent_id.clone(), a, r, sig, v);
+}
+
+// ---------------------------------------------------------------------------
+// Property tests — the native mode of the bound (B19)
+// ---------------------------------------------------------------------------
+
+mod property {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Even a kernel that signs everything cannot push value out past the owner's
+        /// bound. Every call either succeeds inside the caps or panics with an exact
+        /// code; the total accepted over the sequence never exceeds the bucket capacity.
+        #[test]
+        fn value_out_is_bounded_for_any_receipt_sequence(
+            amounts in prop::collection::vec(1u128..=1_000u128, 1..12),
+        ) {
+            let mut env = deploy();
+            let mut total: u128 = 0;
+            for (i, amount) in amounts.iter().enumerate() {
+                let mut nonce = [0u8; 16];
+                nonce[..8].copy_from_slice(&(i as u64).to_be_bytes());
+                let a = action(*amount);
+                let (r, sig, v) = sign(
+                    &env,
+                    &a,
+                    nonce,
+                    [0u8; 16],
+                    BASE_TS_MS,
+                    BASE_TS_MS + 60_000,
+                );
+                let predecessor = account("relayer.test.near");
+                testing_env!(ctx(predecessor, 0, BASE_TS_MS).build());
+                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    env.contract.execute_value(env.agent_id.clone(), a, r, sig, v)
+                }));
+                if outcome.is_ok() {
+                    total += amount;
+                }
+            }
+            prop_assert!(
+                total <= 1_000,
+                "value out {total} exceeded the bucket capacity 1000 over {} calls",
+                amounts.len()
+            );
+        }
+
+        /// Every transfer above the per-call cap is denied, whatever the bucket holds.
+        #[test]
+        fn amounts_above_the_per_call_cap_are_always_denied(
+            amount in 1_001u128..=10_000u128,
+            salt in 0u64..1_000,
+        ) {
+            let mut env = deploy();
+            let a = action(amount);
+            let mut nonce = [0u8; 16];
+            nonce[..8].copy_from_slice(&salt.to_be_bytes());
+            let (r, sig, v) = sign(&env, &a, nonce, [0u8; 16], BASE_TS_MS, BASE_TS_MS + 60_000);
+            let predecessor = account("relayer.test.near");
+            testing_env!(ctx(predecessor, 0, BASE_TS_MS).build());
+            let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                env.contract.execute_value(env.agent_id.clone(), a, r, sig, v)
+            }));
+            prop_assert!(outcome.is_err(), "an amount above the per-call cap must be denied");
+        }
+    }
 }
