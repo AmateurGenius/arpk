@@ -11,11 +11,14 @@
 //! Denials always carry an exact `ARPK:*` code.
 
 mod manifest;
+mod monitors;
 mod pdp;
 mod receipt;
+mod rpc;
 
 use std::process::exit;
 
+use arpk_core::codes::Code;
 use arpk_core::MAX_RECEIPT_TTL_MS;
 use serde::Serialize;
 
@@ -26,12 +29,15 @@ arpkd — ARPK kernel (TEE: simulator)
 
   arpkd public-key
   arpkd manifest-hash --manifest <file.json>
+  arpkd agent --rpc <url> --contract <account> --agent <hex32> [--now-ms <ms>]
   arpkd sign --chain <id> --contract <account> --agent <hex32> --session <hex16>
               --nonce <hex16> --manifest-hash <hex32> --context-hash <hex32>
               --venue <id> --to <account> --asset <symbol> --amount <u128>
               --memo-hash <hex32> --authority <full|degraded|askonly>
               [--agent-tier <standard|administrative>] [--venue-paused <bool>]
               [--stale <bool>] [--ttl-ms <ms>] [--issued-ms <ms>]
+              [--agent-expiry-ms <ms>] [--exposure <u128>] [--exposure-cap <u128>]
+              [--approval-threshold <u128>] [--approval-expiry-ms <ms>]
 
 Amounts and timestamps are decimal. Hashes are 0x-prefixed or bare hex.
 ";
@@ -45,6 +51,7 @@ fn main() {
     let result = match args[0].as_str() {
         "public-key" => cmd_public_key(),
         "manifest-hash" => cmd_manifest_hash(&args[1..]),
+        "agent" => cmd_agent(&args[1..]),
         "sign" => cmd_sign(&args[1..]),
         other => Err(format!("unknown command '{other}'")),
     };
@@ -125,43 +132,84 @@ fn cmd_manifest_hash(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// The argument list of the vault's `execute_value`, encoded exactly as the contract's
+/// serde DTOs expect: byte fields are JSON arrays (not hex), `U128`/`U64` are strings.
 #[derive(Serialize)]
 struct ActionOut {
     chain: String,
     venue: String,
     to: String,
     asset: String,
-    /// NEAR's `U128` serializes as a decimal string.
     amount: String,
-    memo_hash: String,
+    memo_hash: Vec<u8>,
 }
 
 #[derive(Serialize)]
 struct ReceiptOut {
-    agent_id: String,
-    session_id: String,
+    agent_id: Vec<u8>,
+    session_id: Vec<u8>,
     class: u8,
-    action_hash: String,
-    manifest_hash: String,
-    context_hash: String,
+    action_hash: Vec<u8>,
+    manifest_hash: Vec<u8>,
+    context_hash: Vec<u8>,
     verdict: u8,
-    nonce: String,
-    /// NEAR's `U64` serializes as a decimal string.
+    nonce: Vec<u8>,
     issued_ms: String,
     expiry_ms: String,
 }
 
 #[derive(Serialize)]
 struct SignOutput {
-    agent_id: String,
+    agent_id: Vec<u8>,
     action: ActionOut,
     receipt: ReceiptOut,
-    signature: String,
+    signature: Vec<u8>,
     v: u8,
+}
+
+/// Fetches an agent record from the vault and checks its lease. The relayer uses this to
+/// fill the lease monitor's snapshot; a missing record or a stale lease denies.
+fn cmd_agent(args: &[String]) -> Result<(), String> {
+    let rpc_url = required(args, "--rpc")?;
+    let contract = required(args, "--contract")?;
+    let agent_hex = required(args, "--agent")?;
+    let now_ms: u64 = match arg(args, "--now-ms") {
+        Some(v) => v.parse().map_err(|e| format!("--now-ms: {e}"))?,
+        None => std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| e.to_string())?
+            .as_millis() as u64,
+    };
+    let agent_id = fixed::<32>(&unhex(agent_hex, 32, "--agent")?, "--agent")?;
+    let client: rpc::Rpc<rpc::CurlTransport> = rpc::Rpc::new(rpc_url, rpc::CurlTransport);
+    let agent: serde_json::Value = client
+        .view_call(
+            contract,
+            "get_agent",
+            &serde_json::json!({ "agent_id": agent_id }),
+        )
+        .map_err(|e| e.to_string())?;
+    if agent.is_null() {
+        return Err(Code::ManifestMissing.as_str().to_string());
+    }
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&agent).map_err(|e| e.to_string())?
+    );
+    let expiry_ms = agent
+        .get("expiry_ms")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| "agent record has no expiry_ms".to_string())?;
+    monitors::check_lease(expiry_ms, now_ms).map_err(|e| e.as_str().to_string())?;
+    Ok(())
 }
 
 fn cmd_sign(args: &[String]) -> Result<(), String> {
     let pdp = pdp::Pdp::load().map_err(|e| e.to_string())?;
+    eprintln!(
+        "arpkd: PDP validated ({} policies); TEE=simulator",
+        pdp.policy_count()
+    );
     let key = receipt::KernelKey::simulator().map_err(|e| e.to_string())?;
 
     let chain = required(args, "--chain")?;
@@ -193,6 +241,33 @@ fn cmd_sign(args: &[String]) -> Result<(), String> {
             .map_err(|e| e.to_string())?
             .as_millis() as u64,
     };
+    // Monitor snapshots. The relayer and `serve` fill these from RPC view calls; the CLI
+    // takes them as arguments so the same enforcement path is exercisable standalone.
+    let agent_expiry_ms: u64 = match arg(args, "--agent-expiry-ms") {
+        Some(v) => v.parse().map_err(|e| format!("--agent-expiry-ms: {e}"))?,
+        None => u64::MAX,
+    };
+    let exposure: u128 = match arg(args, "--exposure") {
+        Some(v) => v.parse().map_err(|e| format!("--exposure: {e}"))?,
+        None => 0,
+    };
+    let exposure_cap: u128 = match arg(args, "--exposure-cap") {
+        Some(v) => v.parse().map_err(|e| format!("--exposure-cap: {e}"))?,
+        None => u128::MAX,
+    };
+    let approval_threshold: u128 = match arg(args, "--approval-threshold") {
+        Some(v) => v
+            .parse()
+            .map_err(|e| format!("--approval-threshold: {e}"))?,
+        None => u128::MAX,
+    };
+    let approval_expiry_ms: Option<u64> = match arg(args, "--approval-expiry-ms") {
+        Some(v) => Some(
+            v.parse()
+                .map_err(|e| format!("--approval-expiry-ms: {e}"))?,
+        ),
+        None => None,
+    };
 
     let agent_id = fixed::<32>(&unhex(agent_hex, 32, "--agent")?, "--agent")?;
     let session_id = fixed::<16>(&unhex(session_hex, 16, "--session")?, "--session")?;
@@ -209,10 +284,45 @@ fn cmd_sign(args: &[String]) -> Result<(), String> {
     // Cedar's `Long` is i64; amounts above it are saturated for the policy check only.
     // The contract's caps remain the bound on the real value.
     let cedar_amount = i64::try_from(amount).unwrap_or(i64::MAX);
-    let request = pdp::request(&hex(&agent_id), venue, authority, stale, Some(cedar_amount));
+    let request = pdp::request(
+        &hex(&agent_id),
+        venue,
+        authority,
+        stale,
+        Some(cedar_amount),
+        Some(pdp.schema()),
+    );
     if let pdp::Verdict::Deny(code) = pdp.evaluate(&request, &entities) {
         return Err(code.as_str().to_string());
     }
+
+    // Monitors: lease, venue, approval. Same enforcement path the relayer and `serve` use.
+    monitors::check_lease(agent_expiry_ms, issued_ms).map_err(|e| e.as_str().to_string())?;
+    monitors::check_venue(venue_paused, exposure, amount, exposure_cap)
+        .map_err(|e| e.as_str().to_string())?;
+    let action_hash = arpk_core::eip712::hash_value_action(
+        &receipt::Sha3,
+        &arpk_core::eip712::ValueAction {
+            chain: chain.to_string(),
+            venue: venue.to_string(),
+            to: to.to_string(),
+            asset: asset.to_string(),
+            amount,
+            memo_hash,
+        },
+    );
+    let approval = approval_expiry_ms.map(|expiry_ms| monitors::ApprovalSnapshot {
+        action_hash,
+        expiry_ms,
+        consumed: false,
+    });
+    monitors::check_approval(
+        amount >= approval_threshold,
+        approval,
+        action_hash,
+        issued_ms,
+    )
+    .map_err(|e| e.as_str().to_string())?;
 
     let req = ReceiptRequest {
         action: ActionInput {
@@ -235,28 +345,28 @@ fn cmd_sign(args: &[String]) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     let out = SignOutput {
-        agent_id: hex(&signed.receipt.agent_id),
+        agent_id: signed.receipt.agent_id.to_vec(),
         action: ActionOut {
             chain: chain.to_string(),
             venue: venue.to_string(),
             to: to.to_string(),
             asset: asset.to_string(),
             amount: amount.to_string(),
-            memo_hash: hex(&memo_hash),
+            memo_hash: memo_hash.to_vec(),
         },
         receipt: ReceiptOut {
-            agent_id: hex(&signed.receipt.agent_id),
-            session_id: hex(&signed.receipt.session_id),
+            agent_id: signed.receipt.agent_id.to_vec(),
+            session_id: signed.receipt.session_id.to_vec(),
             class: signed.receipt.class,
-            action_hash: hex(&signed.receipt.action_hash),
-            manifest_hash: hex(&signed.receipt.manifest_hash),
-            context_hash: hex(&signed.receipt.context_hash),
+            action_hash: signed.action_hash.to_vec(),
+            manifest_hash: signed.receipt.manifest_hash.to_vec(),
+            context_hash: signed.receipt.context_hash.to_vec(),
             verdict: signed.receipt.verdict,
-            nonce: hex(&signed.receipt.nonce),
+            nonce: signed.receipt.nonce.to_vec(),
             issued_ms: signed.receipt.issued_ms.to_string(),
             expiry_ms: signed.receipt.expiry_ms.to_string(),
         },
-        signature: hex(&signed.signature),
+        signature: signed.signature.clone(),
         v: signed.v,
     };
     println!(

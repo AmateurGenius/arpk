@@ -108,6 +108,7 @@ pub fn request(
     authority: &str,
     stale: bool,
     amount: Option<i64>,
+    schema: Option<&Schema>,
 ) -> Request {
     let principal = EntityUid::from_str(&format!("Agent::{agent_id:?}")).unwrap();
     let action = EntityUid::from_str(r#"Action::"execute_value""#).unwrap();
@@ -129,7 +130,7 @@ pub fn request(
         ));
     }
     let context = Context::from_pairs(pairs).unwrap();
-    Request::new(principal, action, resource, context, None).unwrap()
+    Request::new(principal, action, resource, context, schema).unwrap()
 }
 
 /// Builds the entity store for a request.
@@ -172,7 +173,7 @@ mod tests {
     #[test]
     fn full_authority_permits_a_live_transfer() {
         let pdp = Pdp::load().unwrap();
-        let req = request("agent-0", "venue-0", "full", false, Some(1_000));
+        let req = request("agent-0", "venue-0", "full", false, Some(1_000), None);
         let entities = entities("agent-0", "venue-0", false, true, "standard");
         assert_eq!(pdp.evaluate(&req, &entities), Verdict::Allow);
     }
@@ -180,7 +181,7 @@ mod tests {
     #[test]
     fn paused_venue_denies_with_action_not_permitted() {
         let pdp = Pdp::load().unwrap();
-        let req = request("agent-0", "venue-0", "full", false, Some(1_000));
+        let req = request("agent-0", "venue-0", "full", false, Some(1_000), None);
         let entities = entities("agent-0", "venue-0", true, true, "standard");
         assert_eq!(
             pdp.evaluate(&req, &entities),
@@ -198,7 +199,7 @@ mod tests {
     #[test]
     fn forced_error_denies_with_the_exact_code() {
         let pdp = Pdp::load().unwrap();
-        let req = request("agent-0", "venue-0", "full", false, Some(1_000));
+        let req = request("agent-0", "venue-0", "full", false, Some(1_000), None);
         let entities = entities("agent-0", "venue-0", false, false, "standard");
         assert_eq!(
             pdp.evaluate(&req, &entities),
@@ -212,7 +213,7 @@ mod tests {
     #[test]
     fn missing_context_amount_is_also_a_forced_error() {
         let pdp = Pdp::load().unwrap();
-        let req = request("agent-0", "venue-0", "degraded", false, None);
+        let req = request("agent-0", "venue-0", "degraded", false, None, None);
         let entities = entities("agent-0", "venue-0", false, true, "standard");
         assert_eq!(
             pdp.evaluate(&req, &entities),
