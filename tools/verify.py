@@ -79,11 +79,12 @@ def main():
             out_path = Path(arg.split("=", 1)[1])
 
     core_out = run(["cargo", "test", "-p", "arpk-core"])
+    kernel_out = run(["cargo", "test", "-p", "arpkd"])
     vault_out = run([
         "cargo", "test", "--manifest-path",
         "contracts/near-vault/Cargo.toml",
     ])
-    combined = core_out + "\n" + vault_out
+    combined = "\n".join([core_out, kernel_out, vault_out])
     passed = passed_tests(combined)
 
     claims = {}

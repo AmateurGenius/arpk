@@ -32,6 +32,21 @@ pub enum Code {
     TimeRegression,
     /// Structurally invalid input (wrong length, unparseable destination).
     Malformed,
+    // policy (kernel PDP)
+    PolicyEvalError,
+    // action
+    ActionNotPermitted,
+    ActionUnclassified,
+    // authority ledger
+    AuthorityDegradedCap,
+    AuthorityFrozen,
+    AuthorityAskOnly,
+    // tier
+    TierAdministrativeDenied,
+    // lease
+    LeaseStale,
+    // approval
+    ApprovalTimeout,
 }
 
 impl Code {
@@ -59,6 +74,15 @@ impl Code {
             VenueExposureCap => "ARPK:venue.exposure_cap",
             TimeRegression => "ARPK:time.regression",
             Malformed => "ARPK:malformed",
+            PolicyEvalError => "ARPK:policy.eval_error",
+            ActionNotPermitted => "ARPK:action.not_permitted",
+            ActionUnclassified => "ARPK:action.unclassified",
+            AuthorityDegradedCap => "ARPK:authority.degraded_cap",
+            AuthorityFrozen => "ARPK:authority.frozen",
+            AuthorityAskOnly => "ARPK:authority.askonly",
+            TierAdministrativeDenied => "ARPK:tier.administrative_denied",
+            LeaseStale => "ARPK:lease.stale",
+            ApprovalTimeout => "ARPK:approval.timeout",
         }
     }
 }

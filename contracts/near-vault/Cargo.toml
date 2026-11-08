@@ -8,6 +8,12 @@ description = "ARPK NEAR vault: bounded value movement enforced by receipts."
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# Placeholder for the WP1b sandbox tests (B22, B23). The near-workspaces dependency and
+# the `#[cfg(feature = "sandbox")]` tests are added when those tests are written; until
+# then the feature is a no-op so CI can run the job and stay green.
+[features]
+sandbox = []
+
 [dependencies]
 near-sdk = { version = "5.30.1", features = ["unstable", "unit-testing"] }
 arpk-core = { path = "../../crates/arpk-core" }

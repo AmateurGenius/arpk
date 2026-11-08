@@ -30,15 +30,16 @@ jobs:
           path: contracts/near-vault/target/wasm32-unknown-unknown/release/near_vault.wasm
 
   # CI tier: the near-workspaces sandbox binary is glibc-only, so it cannot run on
-  # Termux/Bionic. Enabled in WP1b when the sandbox tests are written.
-  # sandbox:
-  #   runs-on: ubuntu-latest
-  #   env:
-  #     SANDBOX_ARTIFACT_URL: https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/Linux-x86_64/2.14.0/near-sandbox.tar.gz
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: dtolnay/rust-toolchain@1.99.1
-  #     - run: cargo test --manifest-path contracts/near-vault/Cargo.toml --features sandbox
+  # Termux/Bionic. The `sandbox` feature is a placeholder today; WP1b adds the B22/B23
+  # sandbox tests and the near-workspaces dependency under it.
+  sandbox:
+    runs-on: ubuntu-latest
+    env:
+      SANDBOX_ARTIFACT_URL: https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/Linux-x86_64/2.14.0/near-sandbox.tar.gz
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - run: cargo test --manifest-path contracts/near-vault/Cargo.toml --features sandbox
 
   # CI tier: Docker containment. Enabled in WP2.
   # containment:

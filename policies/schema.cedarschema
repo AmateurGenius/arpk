@@ -1,0 +1,24 @@
+// ARPK strict schema — the kernel's policy vocabulary.
+//
+// Amounts reach Cedar only as bounded `__cedar::Long` values precomputed by monitors;
+// Cedar never sees an unbounded integer.
+
+entity Agent {
+  agent_id: __cedar::String,
+  tier: __cedar::String,
+};
+
+entity Venue {
+  venue_id: __cedar::String,
+  paused: __cedar::Bool,
+};
+
+action execute_value appliesTo {
+  principal: [Agent],
+  resource: [Venue],
+  context: {
+    authority: __cedar::String,
+    stale: __cedar::Bool,
+    amount: __cedar::Long,
+  }
+};

@@ -5,7 +5,7 @@
 
 use arpk_core::eip712::{self, Domain, Receipt as CoreReceipt, ValueAction as CoreAction};
 use arpk_core::{class, verdict, Keccak};
-use k256::ecdsa::{signature::hazmat::PrehashSigner, SigningKey};
+use k256::ecdsa::SigningKey;
 use near_sdk::json_types::{U128, U64};
 use near_sdk::test_utils::VMContextBuilder;
 use near_sdk::testing_env;
@@ -117,7 +117,7 @@ fn deploy() -> Env {
     }
 }
 
-fn domain(env: &Env) -> Domain {
+fn domain(_env: &Env) -> Domain {
     let mut buf = Vec::new();
     buf.extend_from_slice(near_sdk::env::chain_id().as_bytes());
     buf.extend_from_slice(near_sdk::env::current_account_id().as_bytes());

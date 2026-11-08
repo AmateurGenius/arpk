@@ -1,7 +1,7 @@
 # ARPK — build and verification entry points.
 #
 # Tiers (see docs/threat-model.md):
-#   local  : pure Rust + wasm — arpk-core model tests, vault native tests
+#   local  : pure Rust + wasm — arpk-core model tests, kernel PDP tests, vault native tests
 #   CI     : near-workspaces sandbox, docker-compose containment, clean-room verify
 
 CONTRACT := contracts/near-vault
@@ -16,6 +16,7 @@ setup:
 
 verify:
 	cargo test -p arpk-core
+	cargo test -p arpkd
 	cargo test --manifest-path $(CONTRACT)/Cargo.toml
 
 verify-full: verify
