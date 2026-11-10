@@ -99,6 +99,9 @@ impl core::fmt::Display for PdpError {
     }
 }
 
+/// So `?` works in any crate that links the kernel (the e2e tests, the relayer).
+impl std::error::Error for PdpError {}
+
 /// Builds the `execute_value` request the kernel evaluates.
 ///
 /// `amount` is `None` only to force a missing-attribute evaluation error (B14).

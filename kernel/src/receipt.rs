@@ -111,6 +111,9 @@ impl fmt::Display for ReceiptError {
     }
 }
 
+/// So `?` works in any crate that links the kernel (the e2e tests, the relayer).
+impl std::error::Error for ReceiptError {}
+
 /// Signs one value receipt. `expiry_ms` is `issued_ms + ttl_ms`, never more than
 /// [`MAX_RECEIPT_TTL_MS`] later, so a kernel-signed receipt can never be rejected for
 /// its TTL.

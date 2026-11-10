@@ -13,6 +13,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.99.1
       - name: arpk-core model tests
         run: cargo test -p arpk-core
+      - name: arpkd kernel tests
+        run: cargo test -p arpkd
       - name: vault native tests
         run: cargo test --manifest-path contracts/near-vault/Cargo.toml
 
@@ -29,17 +31,19 @@ jobs:
           name: vault-wasm
           path: contracts/near-vault/target/wasm32-unknown-unknown/release/near_vault.wasm
 
-  # CI tier: the near-workspaces sandbox binary is glibc-only, so it cannot run on
-  # Termux/Bionic. The `sandbox` feature is a placeholder today; WP1b adds the B22/B23
-  # sandbox tests and the near-workspaces dependency under it.
-  sandbox:
+  # CI tier: the P0 end-to-end. The near-sandbox binary is glibc-only, so this runs on
+  # Ubuntu and cannot run on Termux/Bionic. It builds the wasm, deploys it to a sandbox,
+  # has the kernel library sign a receipt, and submits it with a function-call key.
+  e2e:
     runs-on: ubuntu-latest
-    env:
-      SANDBOX_ARTIFACT_URL: https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/Linux-x86_64/2.14.0/near-sandbox.tar.gz
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.99.1
-      - run: cargo test --manifest-path contracts/near-vault/Cargo.toml --features sandbox
+      - run: rustup target add wasm32-unknown-unknown
+      - name: build the vault wasm
+        run: cargo build --manifest-path contracts/near-vault/Cargo.toml --target wasm32-unknown-unknown --release
+      - name: sandbox e2e (intent -> receipt -> on-chain transfer)
+        run: cargo test --manifest-path contracts/near-vault/Cargo.toml --features sandbox --test e2e -- --nocapture
 
   # CI tier: Docker containment. Enabled in WP2.
   # containment:
