@@ -371,6 +371,23 @@ async fn submit(kit: &Kit, args: &Value) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Submit and report either success or the exact rejection, without asserting which.
+async fn try_submit(kit: &Kit, args: &Value) -> Result<(), String> {
+    match kit
+        .relayer
+        .call(kit.contract.id(), "execute_value")
+        .args_json(args)
+        .transact()
+        .await
+    {
+        Ok(exec) => match exec.into_result() {
+            Ok(_) => Ok(()),
+            Err(e) => Err(format!("{e:?}")),
+        },
+        Err(e) => Err(format!("{e:?}")),
+    }
+}
+
 async fn submit_err(kit: &Kit, args: &Value) -> String {
     let err = kit
         .relayer
@@ -458,6 +475,48 @@ async fn intent_to_receipt_to_on_chain_transfer() -> anyhow::Result<()> {
         "a revoked agent must be rejected, got: {revoke_err}"
     );
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn twenty_transfers_stop_at_the_bucket_bound() -> anyhow::Result<()> {
+    let kit = setup().await?;
+    let (tokens_before, _) = agent_state(&kit).await?;
+
+    // 10 NEAR per call (the per-call cap) against a 100 NEAR bucket with no refill: the
+    // first ten must succeed and everything after must be denied by the bucket. That is
+    // the bound over a sequence, not a single transfer.
+    let amount = 10 * YOCTO;
+    let mut accepted = 0u32;
+    let mut denied = 0u32;
+
+    for i in 0..20u8 {
+        let spec = IntentSpec {
+            amount,
+            ..IntentSpec::new(200 + i)
+        };
+        let args = kernel_sign(&kit, &kit.kernel, &spec)?;
+        match try_submit(&kit, &args).await {
+            Ok(()) => accepted += 1,
+            Err(msg) => {
+                assert!(
+                    msg.contains("ARPK:value.bucket_exceeded"),
+                    "step {i}: expected the bucket to deny, got {msg}"
+                );
+                denied += 1;
+            }
+        }
+    }
+
+    assert_eq!(accepted, 10, "exactly the bucket capacity is spendable");
+    assert_eq!(denied, 10, "everything past the bound is denied");
+
+    let (tokens_after, _) = agent_state(&kit).await?;
+    assert_eq!(
+        tokens_before - tokens_after,
+        amount * accepted as u128,
+        "the bucket moved by exactly what was accepted"
+    );
     Ok(())
 }
 
