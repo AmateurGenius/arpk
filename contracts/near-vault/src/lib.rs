@@ -566,6 +566,13 @@ impl Vault {
         U128(self.ledger)
     }
 
+    /// The chain this vault lives on. The EIP-712 domain separator is salted with it, so
+    /// the kernel must use this exact value rather than guessing — the sandbox, testnet and
+    /// mainnet all differ.
+    pub fn chain_id(&self) -> String {
+        env::chain_id()
+    }
+
     pub fn get_agent(&self, agent_id: Vec<u8>) -> Option<AgentDto> {
         self.agents.get(&agent_id).map(|a| AgentDto {
             manifest_hash: a.manifest_hash.to_vec(),

@@ -157,6 +157,11 @@ async fn setup() -> anyhow::Result<Kit> {
         .into_result()?;
     relayer.set_secret_key(fc_sk);
 
+    // The kernel must build the same EIP-712 domain separator as the contract, and the
+    // salt includes the chain id. Read it from the contract rather than assuming: the
+    // sandbox's chain id is not something the test should have to know.
+    let chain: String = contract.view("chain_id").await?.json()?;
+
     Ok(Kit {
         contract,
         owner,
@@ -166,7 +171,7 @@ async fn setup() -> anyhow::Result<Kit> {
         manifest_hash,
         kernel,
         pdp: pdp::Pdp::load()?,
-        chain: "sandbox".to_string(),
+        chain,
     })
 }
 
