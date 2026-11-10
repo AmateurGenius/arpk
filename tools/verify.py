@@ -37,7 +37,7 @@ CLAIMS = {
         "action and the on-chain manifest.",
         ["b02", "b03", "b04", "b05", "b06", "b08", "b20", "b21"],
         ["local", "ci"],
-        "On-chain e2e is the missing piece (Block A2).",
+        "On-chain e2e green in CI: intent -> kernel receipt -> transfer, plus B03/B06/B07/B20/B21.",
     ),
     "C2": (
         "The agent plane holds an empty capability set and reaches only the kernel socket.",

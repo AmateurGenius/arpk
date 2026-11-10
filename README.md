@@ -27,8 +27,11 @@ test asserts an exact `ARPK:*` reason code string.
 
 Some evidence cannot run on this device (Termux/Bionic): the near-workspaces sandbox
 binary is glibc-only, Kani does not support the platform, and Docker is absent. Those
-tiers run in GitHub Actions on Ubuntu. `make verify` prints `SKIP (CI-only)` for them and
-the README links the latest green run.
+tiers run in GitHub Actions on Ubuntu, and `make verify` prints `SKIP (CI-only)` for them.
+
+Latest green run: <https://github.com/AmateurGenius/arpk/actions/runs/42881278133>
+(`native`, `wasm`, `e2e`). The `e2e` job deploys the wasm to a sandbox, has the kernel
+library sign a receipt, and submits it with a function-call key — the P0 path, green.
 
 ## Current status
 
@@ -38,7 +41,7 @@ environment its evidence ran in (`local`, `ci`, `testnet`). As of this build:
 | Claim | Status | Env | Evidence |
 |---|---|---|---|
 | C0 bound | PASS | local, ci | 4 proptest properties + bucket/caps unit tests; fuzz volume below target |
-| C1 receipt binding | PASS | local, ci | B02-B08, B20, B21; on-chain e2e pending |
+| C1 receipt binding | PASS | local, ci | B02-B08, B20, B21; on-chain e2e green in CI |
 | C2 containment | SKIP | ci | not built — needs Docker (Block B3) |
 | C3 untrusted ingress shrinks authority | SKIP | local | not built — Authority Ledger (Block B4) |
 | C4 revocation | PASS | local, ci | B07 |

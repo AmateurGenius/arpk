@@ -1,6 +1,6 @@
 {
   "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13) (built from a source tarball)",
-  "run_url": null,
+  "run_url": "https://github.com/AmateurGenius/arpk/actions/runs/42881278133",
   "tests_passed": [
     "b02_forged_signature_is_rejected",
     "b03_replay_is_rejected",
@@ -88,7 +88,7 @@
         "local",
         "ci"
       ],
-      "notes": "On-chain e2e is the missing piece (Block A2).",
+      "notes": "On-chain e2e green in CI: intent -> kernel receipt -> transfer, plus B03/B06/B07/B20/B21.",
       "status": "PASS",
       "missing_tests": []
     },
