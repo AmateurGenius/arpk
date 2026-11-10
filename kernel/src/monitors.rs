@@ -14,7 +14,6 @@ pub struct ApprovalSnapshot {
 }
 
 /// A kernel-side reservation of value against an outstanding receipt.
-#[allow(dead_code)] // used by `serve` (WP1b item 10); the one-shot CLI keeps no durable ledger.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Reservation {
     pub nonce: [u8; 16],
@@ -24,13 +23,11 @@ pub struct Reservation {
 
 /// Tracks outstanding reservations so a receipt cannot be spent twice off-chain.
 /// A reservation is released when its receipt expires without being submitted.
-#[allow(dead_code)] // wired into `serve` (WP1b item 10); the one-shot CLI keeps no durable ledger.
 #[derive(Clone, Debug, Default)]
 pub struct SpendLedger {
     reservations: Vec<Reservation>,
 }
 
-#[allow(dead_code)] // wired into `serve` (WP1b item 10); the one-shot CLI keeps no durable ledger.
 impl SpendLedger {
     pub fn new() -> Self {
         Self::default()
@@ -76,6 +73,7 @@ impl SpendLedger {
         self.reservations.len()
     }
 
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.reservations.is_empty()
     }

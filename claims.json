@@ -1,5 +1,6 @@
 {
   "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13) (built from a source tarball)",
+  "run_url": null,
   "tests_passed": [
     "b02_forged_signature_is_rejected",
     "b03_replay_is_rejected",
@@ -12,6 +13,8 @@
     "b18_amount_at_threshold_requires_approval",
     "b20_ttl_above_max_is_rejected",
     "b21_revoked_kernel_key_is_rejected",
+    "b22_owner_method_requires_one_yocto",
+    "b23_execute_value_needs_no_deposit",
     "b24_venue_exposure_cap_is_enforced",
     "b25_bucket_bound_is_exact",
     "b26_u128_max_amount_is_rejected",
@@ -25,65 +28,150 @@
     "caps::tests::per_call_cap_is_enforced",
     "domain_separator_depends_on_salt",
     "golden_vectors_match_independent_implementation",
+    "manifest::tests::canonical_form_is_exact_for_integers_and_strings",
+    "manifest::tests::canonical_form_sorts_keys_and_omits_whitespace",
+    "manifest::tests::manifest_hash_is_deterministic_and_value_sensitive",
+    "manifest::tests::manifest_hash_matches_the_independently_derived_golden_value",
+    "monitors::tests::approval_is_required_only_above_the_threshold",
+    "monitors::tests::approval_must_match_the_action_and_be_live_and_unconsumed",
+    "monitors::tests::expired_reservations_are_released",
+    "monitors::tests::lease_goes_stale_after_expiry",
+    "monitors::tests::paused_venue_and_exposure_cap_are_enforced",
+    "monitors::tests::reserve_then_replay_is_rejected",
+    "monitors::tests::reserve_with_an_expired_window_is_rejected",
     "pdp::tests::a_well_formed_request_validates_against_the_embedded_schema",
     "pdp::tests::embedded_policy_set_validates_against_the_strict_schema",
     "pdp::tests::forced_error_denies_with_the_exact_code",
     "pdp::tests::full_authority_permits_a_live_transfer",
     "pdp::tests::missing_context_amount_is_also_a_forced_error",
     "pdp::tests::paused_venue_denies_with_action_not_permitted",
+    "property::amounts_above_the_per_call_cap_are_always_denied",
+    "property::value_out_is_bounded_for_any_receipt_sequence",
+    "receipt::tests::digest_matches_the_golden_vector",
+    "receipt::tests::recovery_id_is_zero_or_one",
+    "receipt::tests::signed_receipt_recovers_to_the_kernel_key",
+    "receipt::tests::simulator_key_is_stable_and_64_bytes",
+    "receipt::tests::ttl_over_the_ceiling_is_rejected_with_the_exact_code",
     "rejected_take_consumes_nothing",
+    "rpc::tests::a_malformed_response_is_an_error_not_a_panic",
+    "rpc::tests::a_node_error_is_surfaced",
+    "rpc::tests::base64_matches_the_standard_encoding",
+    "rpc::tests::view_call_decodes_the_return_value",
     "saturation_never_exceeds_capacity",
+    "serve::tests::a_denied_action_does_not_reserve",
+    "serve::tests::a_full_action_is_signed_and_reserved",
+    "serve::tests::a_malformed_line_gets_the_exact_code",
+    "serve::tests::a_replayed_nonce_is_rejected",
+    "serve::tests::an_action_missing_its_shape_is_malformed",
+    "serve::tests::an_observation_is_recorded",
+    "serve::tests::an_unknown_control_command_is_unclassified",
+    "serve::tests::an_unknown_event_type_is_malformed",
+    "serve::tests::release_expired_is_ok",
+    "serve::tests::state_reports_the_kernel",
     "time_regression_is_rejected",
     "transfers_value_with_a_valid_receipt"
   ],
   "claims": {
     "C0": {
       "statement": "Value out over any interval is bounded by capacity + refill*dt; each transfer respects per-call and %-of-balance caps. Holds even if the kernel is malicious.",
+      "env": [
+        "local",
+        "ci"
+      ],
+      "notes": "Kani harnesses (C10) and the on-chain e2e land in Block A3/A4; fuzz volume is currently 8 cases, far below target.",
       "status": "PASS",
-      "missing_tests": [],
-      "tier": "local"
+      "missing_tests": []
     },
     "C1": {
       "statement": "No value moves without a valid, unexpired, unreplayed receipt bound to the exact action and the on-chain manifest.",
+      "env": [
+        "local",
+        "ci"
+      ],
+      "notes": "On-chain e2e is the missing piece (Block A2).",
       "status": "PASS",
-      "missing_tests": [],
-      "tier": "local"
+      "missing_tests": []
     },
     "C2": {
       "statement": "The agent plane holds an empty capability set and reaches only the kernel socket.",
+      "env": [
+        "ci"
+      ],
+      "notes": "Not built. Needs docker-compose + tools/capability-inventory.sh (Block B3).",
       "status": "SKIP",
-      "reason": "not built in this window",
-      "tier": "ci-containment"
+      "reason": "Not built. Needs docker-compose + tools/capability-inventory.sh (Block B3)."
     },
     "C3": {
       "statement": "Untrusted ingress shrinks authority.",
+      "env": [
+        "local"
+      ],
+      "notes": "Not built. Authority Ledger is Block B4, behind B1-B3.",
       "status": "SKIP",
-      "reason": "not built in this window",
-      "tier": "ci-sandbox"
+      "reason": "Not built. Authority Ledger is Block B4, behind B1-B3."
     },
     "C4": {
       "statement": "Revocation is immediate for on-chain value.",
+      "env": [
+        "local",
+        "ci"
+      ],
       "status": "PASS",
-      "missing_tests": [],
-      "tier": "local"
+      "missing_tests": []
     },
     "C5": {
       "statement": "Kernel failure or policy error produces no effect.",
-      "status": "SKIP",
-      "reason": "not built in this window",
-      "tier": "ci-sandbox"
+      "env": [
+        "local"
+      ],
+      "notes": "Cedar diagnostics-deny is covered. B15 (kernel killed mid-request) is not built; the `serve` startup lease gate (B31) is the planned cover.",
+      "status": "PASS",
+      "missing_tests": []
     },
     "C6": {
       "statement": "Evaluation is verifiable downstream from the receipt and the audit chain.",
+      "env": [
+        "local",
+        "ci"
+      ],
       "status": "PASS",
-      "missing_tests": [],
-      "tier": "local"
+      "missing_tests": []
     },
     "C7": {
       "statement": "A paused venue is unreachable and venue exposure is capped.",
+      "env": [
+        "local",
+        "ci"
+      ],
       "status": "PASS",
-      "missing_tests": [],
-      "tier": "local"
+      "missing_tests": []
+    },
+    "C8": {
+      "statement": "Intents can only name manifest-issued handles; an unknown handle or unknown field is unrepresentable.",
+      "env": [
+        "local"
+      ],
+      "notes": "Not built. Block B1 (enumerated intents; B28/B29).",
+      "status": "SKIP",
+      "reason": "Not built. Block B1 (enumerated intents; B28/B29)."
+    },
+    "C9": {
+      "statement": "Within the kernel crate, a receipt can only be produced from a PDP-approved value (assumptions A1-A5).",
+      "env": [
+        "local"
+      ],
+      "notes": "Not built. Block B2 (typestate `Gated`; B30 compile-fail).",
+      "status": "SKIP",
+      "reason": "Not built. Block B2 (typestate `Gated`; B30 compile-fail)."
+    },
+    "C10": {
+      "statement": "The bucket/caps arithmetic is machine-checked (Kani, bounded, arpk-core only).",
+      "env": [
+        "ci"
+      ],
+      "notes": "Not built. Block A4 (6 harnesses, CI only; Termux is unsupported).",
+      "status": "SKIP",
+      "reason": "Not built. Block A4 (6 harnesses, CI only; Termux is unsupported)."
     }
   }
 }

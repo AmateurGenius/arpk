@@ -45,6 +45,7 @@ pub fn domain(chain_id: &str, contract_id: &str) -> Domain {
 }
 
 /// A value action, in the shape the contract recomputes the action hash from.
+#[derive(Clone, Debug)]
 pub struct ActionInput {
     pub chain: String,
     pub venue: String,

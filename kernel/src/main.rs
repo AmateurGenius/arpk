@@ -10,11 +10,13 @@
 //!
 //! Denials always carry an exact `ARPK:*` code.
 
+mod enforce;
 mod manifest;
 mod monitors;
 mod pdp;
 mod receipt;
 mod rpc;
+mod serve;
 
 use std::process::exit;
 
@@ -30,6 +32,7 @@ arpkd — ARPK kernel (TEE: simulator)
   arpkd public-key
   arpkd manifest-hash --manifest <file.json>
   arpkd agent --rpc <url> --contract <account> --agent <hex32> [--now-ms <ms>]
+  arpkd serve --socket <path>
   arpkd sign --chain <id> --contract <account> --agent <hex32> --session <hex16>
               --nonce <hex16> --manifest-hash <hex32> --context-hash <hex32>
               --venue <id> --to <account> --asset <symbol> --amount <u128>
@@ -52,6 +55,7 @@ fn main() {
         "public-key" => cmd_public_key(),
         "manifest-hash" => cmd_manifest_hash(&args[1..]),
         "agent" => cmd_agent(&args[1..]),
+        "serve" => cmd_serve(&args[1..]),
         "sign" => cmd_sign(&args[1..]),
         other => Err(format!("unknown command '{other}'")),
     };
@@ -204,6 +208,11 @@ fn cmd_agent(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+fn cmd_serve(args: &[String]) -> Result<(), String> {
+    let socket = required(args, "--socket")?;
+    serve::serve(socket)
+}
+
 fn cmd_sign(args: &[String]) -> Result<(), String> {
     let pdp = pdp::Pdp::load().map_err(|e| e.to_string())?;
     eprintln!(
@@ -280,59 +289,39 @@ fn cmd_sign(args: &[String]) -> Result<(), String> {
     let memo_hash = fixed::<32>(&unhex(memo_hex, 32, "--memo-hash")?, "--memo-hash")?;
 
     // The kernel is the policy decision point: it signs only what Cedar permits.
-    let entities = pdp::entities(&hex(&agent_id), venue, venue_paused, true, agent_tier);
-    // Cedar's `Long` is i64; amounts above it are saturated for the policy check only.
-    // The contract's caps remain the bound on the real value.
-    let cedar_amount = i64::try_from(amount).unwrap_or(i64::MAX);
-    let request = pdp::request(
-        &hex(&agent_id),
-        venue,
-        authority,
+    // The kernel is the policy decision point: it signs only what the Cedar PDP and the
+    // monitors permit. `serve` runs the same path.
+    let action = ActionInput {
+        chain: chain.to_string(),
+        venue: venue.to_string(),
+        to: to.to_string(),
+        asset: asset.to_string(),
+        amount,
+        memo_hash,
+    };
+    let intent = enforce::SignIntent {
+        agent_id,
+        session_id,
+        nonce,
+        manifest_hash,
+        context_hash,
+        action: action.clone(),
+        authority: authority.to_string(),
+        agent_tier: agent_tier.to_string(),
+        venue_paused,
         stale,
-        Some(cedar_amount),
-        Some(pdp.schema()),
-    );
-    if let pdp::Verdict::Deny(code) = pdp.evaluate(&request, &entities) {
-        return Err(code.as_str().to_string());
-    }
-
-    // Monitors: lease, venue, approval. Same enforcement path the relayer and `serve` use.
-    monitors::check_lease(agent_expiry_ms, issued_ms).map_err(|e| e.as_str().to_string())?;
-    monitors::check_venue(venue_paused, exposure, amount, exposure_cap)
-        .map_err(|e| e.as_str().to_string())?;
-    let action_hash = arpk_core::eip712::hash_value_action(
-        &receipt::Sha3,
-        &arpk_core::eip712::ValueAction {
-            chain: chain.to_string(),
-            venue: venue.to_string(),
-            to: to.to_string(),
-            asset: asset.to_string(),
-            amount,
-            memo_hash,
-        },
-    );
-    let approval = approval_expiry_ms.map(|expiry_ms| monitors::ApprovalSnapshot {
-        action_hash,
-        expiry_ms,
-        consumed: false,
-    });
-    monitors::check_approval(
-        amount >= approval_threshold,
-        approval,
-        action_hash,
+        ttl_ms,
         issued_ms,
-    )
-    .map_err(|e| e.as_str().to_string())?;
+        agent_expiry_ms,
+        exposure,
+        exposure_cap,
+        approval_threshold,
+        approval_expiry_ms,
+    };
+    enforce::enforce(&pdp, &intent).map_err(|e| e.as_str().to_string())?;
 
     let req = ReceiptRequest {
-        action: ActionInput {
-            chain: chain.to_string(),
-            venue: venue.to_string(),
-            to: to.to_string(),
-            asset: asset.to_string(),
-            amount,
-            memo_hash,
-        },
+        action,
         agent_id,
         session_id,
         manifest_hash,

@@ -19,6 +19,8 @@ verify:
 	cargo test -p arpkd
 	# 8 property cases: each case stands up a full contract, which is slow on Android.
 	PROPTEST_CASES=8 cargo test --manifest-path $(CONTRACT)/Cargo.toml
+	@echo "SKIP (CI-only): Kani harnesses, near-workspaces sandbox e2e, docker containment, fuzz at volume"
+	@echo "                 see .github/workflows/verify.yml and claims.json 'env' per claim"
 
 verify-full: verify
 	cargo test --release -p arpk-core
