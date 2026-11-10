@@ -85,8 +85,10 @@ async fn setup() -> anyhow::Result<Kit> {
 
     // Owner methods require exactly 1 yocto, which is what makes a function-call key
     // incapable of reaching them.
-    contract
-        .call("register_manifest")
+    // Owner methods must be called by the owner account: `contract.call(...)` signs as
+    // the contract's own account, which fails `assert_owner()`.
+    owner
+        .call(contract.id(), "register_manifest")
         .args_json(json!({
             "agent_id": agent_id,
             "manifest_hash": manifest_hash,
@@ -106,8 +108,8 @@ async fn setup() -> anyhow::Result<Kit> {
         .await?
         .into_result()?;
 
-    contract
-        .call("register_kernel_key")
+    owner
+        .call(contract.id(), "register_kernel_key")
         .args_json(json!({
             "public_key": kernel.public_key(),
             "expiry_ms": (now_ms() + AGENT_EXPIRY_MS).to_string(),
@@ -117,8 +119,8 @@ async fn setup() -> anyhow::Result<Kit> {
         .await?
         .into_result()?;
 
-    contract
-        .call("deposit")
+    owner
+        .call(contract.id(), "deposit")
         .deposit(NearToken::from_near(100))
         .transact()
         .await?
@@ -423,8 +425,8 @@ async fn intent_to_receipt_to_on_chain_transfer() -> anyhow::Result<()> {
     );
 
     // B07: revocation is immediate on-chain.
-    kit.contract
-        .call("revoke_agent")
+    kit.owner
+        .call(kit.contract.id(), "revoke_agent")
         .args_json(json!({ "agent_id": kit.agent_id }))
         .deposit(NearToken::from_yoctonear(1))
         .transact()
