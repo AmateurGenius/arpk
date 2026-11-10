@@ -10,21 +10,13 @@
 //!
 //! Denials always carry an exact `ARPK:*` code.
 
-mod enforce;
-mod manifest;
-mod monitors;
-mod pdp;
-mod receipt;
-mod rpc;
-mod serve;
-
 use std::process::exit;
 
 use arpk_core::codes::Code;
 use arpk_core::MAX_RECEIPT_TTL_MS;
+use arpk_kernel::receipt::{self, ActionInput, ReceiptRequest};
+use arpk_kernel::{enforce, manifest, monitors, pdp, rpc, serve};
 use serde::Serialize;
-
-use crate::receipt::{ActionInput, ReceiptRequest};
 
 const USAGE: &str = "\
 arpkd — ARPK kernel (TEE: simulator)
@@ -288,7 +280,6 @@ fn cmd_sign(args: &[String]) -> Result<(), String> {
     let context_hash = fixed::<32>(&unhex(context_hex, 32, "--context-hash")?, "--context-hash")?;
     let memo_hash = fixed::<32>(&unhex(memo_hex, 32, "--memo-hash")?, "--memo-hash")?;
 
-    // The kernel is the policy decision point: it signs only what Cedar permits.
     // The kernel is the policy decision point: it signs only what the Cedar PDP and the
     // monitors permit. `serve` runs the same path.
     let action = ActionInput {

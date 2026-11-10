@@ -247,7 +247,7 @@ fn golden_vectors_match_independent_implementation() {
 #[test]
 fn domain_separator_depends_on_salt() {
     let k = Sha3Keccak;
-    let mut a = Domain {
+    let a = Domain {
         name: "ARPK".to_string(),
         version: "1".to_string(),
         salt: [0u8; 32],

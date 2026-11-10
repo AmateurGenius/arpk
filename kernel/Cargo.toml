@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 description = "ARPK kernel daemon: policy decision point, receipt signer, audit chain."
 
+[lib]
+name = "arpk_kernel"
+path = "src/lib.rs"
+
 [[bin]]
 name = "arpkd"
 path = "src/main.rs"
