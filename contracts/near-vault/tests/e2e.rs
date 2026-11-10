@@ -47,9 +47,20 @@ const MEMO_HASH: [u8; 32] = [0x33; 32];
 
 const VENUE: &str = "venue-a";
 const ASSET: &str = "near";
-const AMOUNT: u128 = 1_000_000;
+
+/// 1 NEAR in yoctoNEAR.
+const YOCTO: u128 = 1_000_000_000_000_000_000_000_000;
+
+/// Sandbox dev accounts start with 100 NEAR, and the owner pays gas for the owner calls
+/// *and* funds the vault — so the deposit has to leave room for that.
+const DEPOSIT: u128 = 50 * YOCTO;
+const AMOUNT: u128 = YOCTO;
+const PER_CALL_CAP: u128 = 10 * YOCTO;
+const BUCKET_CAPACITY: u128 = 100 * YOCTO;
+const APPROVAL_THRESHOLD: u128 = 1_000 * YOCTO;
+const EXPOSURE_CAP: u128 = 1_000 * YOCTO;
+
 const AGENT_EXPIRY_MS: u64 = 3_600_000;
-const EXPOSURE_CAP: u128 = 100_000_000;
 
 struct Kit {
     contract: Contract,
@@ -95,11 +106,14 @@ async fn setup() -> anyhow::Result<Kit> {
             "expiry_ms": (now_ms() + AGENT_EXPIRY_MS).to_string(),
             "assets": [{
                 "asset": ASSET,
-                "per_call_cap": "1000000",
+                "per_call_cap": PER_CALL_CAP.to_string(),
                 "pct_cap_bps": "10000",
-                "approval_threshold": "10000000",
-                "bucket_capacity": "1000000",
-                "bucket_refill_per_s": "1000",
+                "approval_threshold": APPROVAL_THRESHOLD.to_string(),
+                "bucket_capacity": BUCKET_CAPACITY.to_string(),
+                // Zero refill: the assertion below checks the bucket moved by *exactly*
+                // the transferred amount, and a live refill would add a few hundred yocto
+                // between the two reads.
+                "bucket_refill_per_s": "0",
             }],
             "venues": [{ "venue": VENUE, "exposure_cap": EXPOSURE_CAP.to_string() }],
         }))
@@ -121,7 +135,7 @@ async fn setup() -> anyhow::Result<Kit> {
 
     owner
         .call(contract.id(), "deposit")
-        .deposit(NearToken::from_near(100))
+        .deposit(NearToken::from_yoctonear(DEPOSIT))
         .transact()
         .await?
         .into_result()?;
