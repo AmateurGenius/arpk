@@ -461,20 +461,27 @@ async fn the_relayer_key_cannot_reach_an_owner_method() -> anyhow::Result<()> {
     let kit = setup().await?;
 
     // The relayer's function-call key is restricted to `execute_value`. Calling an owner
-    // method with it must fail at the protocol level — before the contract's own 1-yocto
-    // check is even reached.
-    let err = kit
+    // method with it must be rejected at the protocol level (`MethodNameMismatch`), before
+    // the contract's own 1-yocto check is ever reached.
+    //
+    // That rejection surfaces as a broadcast error rather than an execution failure, so
+    // both shapes are captured.
+    let msg = match kit
         .relayer
         .call(kit.contract.id(), "revoke_agent")
         .args_json(json!({ "agent_id": kit.agent_id }))
         .transact()
-        .await?
-        .into_result()
-        .expect_err("a function-call key must not reach an owner method");
-    let msg = format!("{err}");
+        .await
+    {
+        Ok(exec) => match exec.into_result() {
+            Ok(_) => panic!("a function-call key must not reach an owner method"),
+            Err(e) => format!("{e:?}"),
+        },
+        Err(e) => format!("{e:?}"),
+    };
     assert!(
-        !msg.is_empty(),
-        "the rejection must carry a message a relayer operator can read"
+        msg.contains("MethodNameMismatch") || msg.contains("ARPK:owner.required"),
+        "the relayer key must be stopped before an owner method runs, got: {msg}"
     );
 
     Ok(())

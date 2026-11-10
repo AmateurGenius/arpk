@@ -138,6 +138,39 @@ pub struct VenueCapDto {
     pub exposure_cap: U128,
 }
 
+// View DTOs. These carry the runtime state the registration DTOs do not (bucket tokens,
+// venue exposure) and, like every other JSON boundary in this contract, render u128 as a
+// decimal string — a bare JSON number loses precision above 2^53.
+#[near(serializers = [json])]
+#[derive(Clone, Debug)]
+pub struct AssetStateDto {
+    pub asset: String,
+    pub per_call_cap: U128,
+    pub pct_cap_bps: U128,
+    pub approval_threshold: U128,
+    pub bucket_capacity: U128,
+    pub bucket_refill_per_s: U128,
+    pub bucket_tokens: U128,
+}
+
+#[near(serializers = [json])]
+#[derive(Clone, Debug)]
+pub struct VenueStateDto {
+    pub venue: String,
+    pub exposure_cap: U128,
+    pub exposure: U128,
+}
+
+#[near(serializers = [json])]
+#[derive(Clone, Debug)]
+pub struct AgentDto {
+    pub manifest_hash: Vec<u8>,
+    pub expiry_ms: U64,
+    pub revoked: bool,
+    pub assets: Vec<AssetStateDto>,
+    pub venues: Vec<VenueStateDto>,
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -533,8 +566,34 @@ impl Vault {
         U128(self.ledger)
     }
 
-    pub fn get_agent(&self, agent_id: Vec<u8>) -> Option<Agent> {
-        self.agents.get(&agent_id).cloned()
+    pub fn get_agent(&self, agent_id: Vec<u8>) -> Option<AgentDto> {
+        self.agents.get(&agent_id).map(|a| AgentDto {
+            manifest_hash: a.manifest_hash.to_vec(),
+            expiry_ms: U64(a.expiry_ms),
+            revoked: a.revoked,
+            assets: a
+                .assets
+                .iter()
+                .map(|x| AssetStateDto {
+                    asset: x.asset.clone(),
+                    per_call_cap: U128(x.per_call_cap),
+                    pct_cap_bps: U128(x.pct_cap_bps),
+                    approval_threshold: U128(x.approval_threshold),
+                    bucket_capacity: U128(x.bucket_capacity),
+                    bucket_refill_per_s: U128(x.bucket_refill_per_s),
+                    bucket_tokens: U128(x.bucket_tokens),
+                })
+                .collect(),
+            venues: a
+                .venues
+                .iter()
+                .map(|v| VenueStateDto {
+                    venue: v.venue.clone(),
+                    exposure_cap: U128(v.exposure_cap),
+                    exposure: U128(v.exposure),
+                })
+                .collect(),
+        })
     }
 
     pub fn is_nonce_used(&self, nonce: Vec<u8>) -> bool {
