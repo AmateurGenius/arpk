@@ -8,9 +8,11 @@
 //! (bionic/aarch64) is none of those, so `make verify` prints `SKIP (CI-only)` for these.
 //! The GitHub Action runs them on Ubuntu.
 
-use arpk_core::bucket::Bucket;
-use arpk_core::caps::ValueCaps;
-use arpk_core::codes::Code;
+// This file is a module of the `arpk-core` crate, so it addresses its own modules
+// directly rather than through the crate name.
+use crate::bucket::Bucket;
+use crate::caps::ValueCaps;
+use crate::codes::Code;
 
 /// Upper bound on symbolic magnitudes that stand for values: 2^96.
 ///
