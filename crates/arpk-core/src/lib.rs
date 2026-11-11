@@ -19,6 +19,15 @@ pub use caps::ValueCaps;
 pub use codes::Code;
 pub use eip712::{Domain, Receipt, ValueAction};
 
+/// Kani harnesses for the cap arithmetic (claim C10).
+///
+/// Compiled only when `cargo kani` sets `--cfg kani`, so a normal build sees nothing here.
+/// Kani supports x86_64 Linux, x86_64 macOS and Apple-silicon macOS; Termux is none of
+/// those, so these run in CI and `make verify` reports them as `SKIP (CI-only)`.
+#[cfg(kani)]
+#[path = "kani/harnesses.rs"]
+mod kani_harnesses;
+
 /// Keccak-256, abstracted so the kernel and the contract can share one hashing code path.
 pub trait Keccak {
     fn keccak256(&self, data: &[u8]) -> [u8; 32];

@@ -57,6 +57,17 @@ jobs:
       - name: native differential at volume (10^4 steps)
         run: DIFFERENTIAL_STEPS=10000 cargo test --release --manifest-path contracts/near-vault/Cargo.toml --test differential -- --nocapture
 
+  # CI tier: Kani on the `arpk-core` cap arithmetic (claim C10). Kani does not support
+  # Termux, so this is CI-only. The harnesses live in crates/arpk-core/kani/ and are
+  # compiled only under `--cfg kani`, so they cost nothing in a normal build.
+  kani:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: model-checking/kani-github-action@v1.1
+        with:
+          working-directory: crates/arpk-core
+
   # CI tier: Docker containment. Enabled in WP2.
   # containment:
   #   runs-on: ubuntu-latest
