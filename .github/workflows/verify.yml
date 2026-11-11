@@ -9,7 +9,7 @@ jobs:
   native:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.99.1
       - name: arpk-core model tests
         run: cargo test -p arpk-core
@@ -22,11 +22,11 @@ jobs:
   wasm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.99.1
       - run: rustup target add wasm32-unknown-unknown
       - run: cargo build --manifest-path contracts/near-vault/Cargo.toml --target wasm32-unknown-unknown --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vault-wasm
           path: contracts/near-vault/target/wasm32-unknown-unknown/release/near_vault.wasm
@@ -37,7 +37,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.99.1
       - run: rustup target add wasm32-unknown-unknown
       - name: build the vault wasm
@@ -50,7 +50,7 @@ jobs:
   fuzz:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.99.1
       - name: model fuzz at volume (10^5 cases per property)
         run: PROPTEST_CASES=100000 cargo test --release -p arpk-core --test fuzz -- --nocapture
@@ -79,7 +79,7 @@ jobs:
           - pct_cap_matches_its_definition
           - per_call_and_venue_exposure_checks
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: model-checking/kani-github-action@v1.1
         with:
           working-directory: crates/arpk-core
@@ -89,6 +89,6 @@ jobs:
   # containment:
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v7
   #     - run: docker compose -f deploy/docker-compose.yml up -d
   #     - run: docker compose -f deploy/docker-compose.yml exec -T agent /usr/local/bin/capability-inventory.sh
