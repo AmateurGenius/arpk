@@ -60,13 +60,30 @@ jobs:
   # CI tier: Kani on the `arpk-core` cap arithmetic (claim C10). Kani does not support
   # Termux, so this is CI-only. The harnesses live in crates/arpk-core/kani/ and are
   # compiled only under `--cfg kani`, so they cost nothing in a normal build.
+  #
+  # One job per harness, in parallel: 128-bit arithmetic is bit-blasted, and a single
+  # `cargo kani` run hides which harness is the expensive one. `fail-fast: false` so a
+  # hard harness does not mask the others, and `timeout-minutes` so it fails rather than
+  # hanging for the GitHub default.
   kani:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        harness:
+          - bucket_step_lemma
+          - tokens_never_exceed_capacity
+          - failed_take_leaves_state_unchanged
+          - time_regression_is_rejected_without_mutation
+          - pct_cap_matches_its_definition
+          - per_call_and_venue_exposure_checks
     steps:
       - uses: actions/checkout@v4
       - uses: model-checking/kani-github-action@v1.1
         with:
           working-directory: crates/arpk-core
+          args: --harness ${{ matrix.harness }}
 
   # CI tier: Docker containment. Enabled in WP2.
   # containment:
