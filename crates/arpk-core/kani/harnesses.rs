@@ -60,7 +60,9 @@ fn bucket_step_lemma() {
     let refill_per_s = refill_rate();
     let prev_ns = kani::any::<u64>();
     let dt = delta_ns();
-    let now_ns = prev_ns + dt;
+    // Saturating for the same reason: `prev_ns` is a full-range u64. Saturation still
+    // satisfies the lemma's `now_ns >= prev_ns` premise.
+    let now_ns = prev_ns.saturating_add(dt);
     let tokens_before = value();
     let out_total = value();
     let credited = value();
@@ -118,7 +120,9 @@ fn tokens_never_exceed_capacity() {
         "tokens must not exceed capacity after a take"
     );
 
-    let later = now_ns + delta_ns();
+    // Saturating: `now_ns` is a full-range u64, so a plain add can overflow and Kani
+    // reports that as a harness failure rather than a property failure.
+    let later = now_ns.saturating_add(delta_ns());
     let _ = bucket.refill(later);
     assert!(
         bucket.tokens <= capacity,
