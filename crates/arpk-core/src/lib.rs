@@ -25,7 +25,7 @@ pub use eip712::{Domain, Receipt, ValueAction};
 /// Kani supports x86_64 Linux, x86_64 macOS and Apple-silicon macOS; Termux is none of
 /// those, so these run in CI and `make verify` reports them as `SKIP (CI-only)`.
 #[cfg(kani)]
-#[path = "kani/harnesses.rs"]
+#[path = "../kani/harnesses.rs"]
 mod kani_harnesses;
 
 /// Keccak-256, abstracted so the kernel and the contract can share one hashing code path.

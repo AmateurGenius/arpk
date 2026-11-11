@@ -220,8 +220,10 @@ fn per_call_and_venue_exposure_checks() {
     let per_call_cap = value();
     let amount = value();
     let mut caps = ValueCaps::new(per_call_cap, 10_000, u128::MAX, u128::MAX, 0);
-    // ledger = u128::MAX so the %-of-balance check cannot deny.
-    let result = caps.check(u128::MAX, amount, 1_000_000_000);
+    // A ledger large enough that `10_000 * ledger` cannot overflow, so the %-of-balance
+    // check accepts and the per-call cap is the only thing that can deny.
+    let ledger = u128::MAX / 10_000;
+    let result = caps.check(ledger, amount, 1_000_000_000);
     assert_eq!(
         result.is_ok(),
         amount <= per_call_cap,

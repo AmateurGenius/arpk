@@ -10,3 +10,8 @@ description = "ARPK executable specification: bound, caps, reason codes, EIP-712
 [dev-dependencies]
 proptest = "1.12"
 sha3 = "0.10"
+
+# `cargo kani` compiles the crate with `--cfg kani`; declaring it here keeps the
+# `unexpected_cfgs` lint quiet in normal builds.
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }

@@ -27,10 +27,10 @@ CLAIMS = {
     "C0": (
         "Value out over any interval is bounded by capacity + refill*dt; each transfer "
         "respects per-call and %-of-balance caps. Holds even if the kernel is malicious.",
-        ["bucket", "caps", "b25", "b26"],
+        ["bucket", "caps", "b18", "b25", "b26", "property"],
         ["local", "ci"],
-        "Kani harnesses (C10) and the on-chain e2e land in Block A3/A4; fuzz volume is "
-        "currently 8 cases, far below target.",
+        "Approval threshold (b18), bucket bound (b25), overflow (b26) and both property "
+        "tests. Volume: 10^5 model cases and 10^4 differential steps, in CI (run 42892069042).",
     ),
     "C1": (
         "No value moves without a valid, unexpired, unreplayed receipt bound to the exact "
@@ -116,11 +116,21 @@ def main():
 
     core_out = run(["cargo", "test", "-p", "arpk-core"])
     kernel_out = run(["cargo", "test", "-p", "arpkd"])
-    vault_out = run([
-        "cargo", "test", "--manifest-path",
-        "contracts/near-vault/Cargo.toml",
-    ])
-    combined = "\n".join([core_out, kernel_out, vault_out])
+    # Same reduced volume `make verify` uses: each vault property case stands up a full
+    # contract, which is slow. `make fuzz` runs the volume tier in CI.
+    vault_env = dict(os.environ, PROPTEST_CASES="8")
+    vault_out = subprocess.run(
+        ["cargo", "test", "--manifest-path", "contracts/near-vault/Cargo.toml"],
+        cwd=ROOT, capture_output=True, text=True, env=vault_env,
+    )
+    vault_out = vault_out.stdout + vault_out.stderr
+    diff_env = dict(os.environ, DIFFERENTIAL_STEPS="200")
+    diff_out = subprocess.run(
+        ["cargo", "test", "--manifest-path",
+         "contracts/near-vault/Cargo.toml", "--test", "differential"],
+        cwd=ROOT, capture_output=True, text=True, env=diff_env,
+    )
+    combined = "\n".join([core_out, kernel_out, vault_out, diff_out.stdout + diff_out.stderr])
     passed = passed_tests(combined)
 
     claims = {}
