@@ -88,6 +88,8 @@ jobs:
           path: site/data/traces
       - name: run the battery and generate claims
         run: PROPTEST_CASES=8 python3 tools/verify.py
+        env:
+          ARPK_CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - name: scenario traces (bankr, lobstar)
         run: cargo test -p arpkd --test scenarios
         env:

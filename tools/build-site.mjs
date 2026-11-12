@@ -66,10 +66,12 @@ const nonclaims = nonclaimsText
       source: 'docs/non-claims.md',
       // One bullet per line, stripped of the markdown marker. Published verbatim in
       // substance; the UI never paraphrases a non-claim.
+      // Only the bullets are non-claims; the surrounding prose is commentary.
       items: nonclaimsText
         .split('\n')
-        .map((l) => l.replace(/^\s*[-*]\s+/, '').trim())
-        .filter((l) => l.length > 0 && !l.startsWith('#')),
+        .map((l) => l.trim())
+        .filter((l) => /^[-*]\s+/.test(l))
+        .map((l) => l.replace(/^[-*]\s+/, '')),
     }
   : null;
 
