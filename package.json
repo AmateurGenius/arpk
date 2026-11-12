@@ -1,0 +1,23 @@
+{
+  "name": "arpk",
+  "version": "0.1.0",
+  "description": "ARPK — verify the receipts and the bound of a capability kernel for agent actions. Independent JS implementation of the EIP-712 receipt format; no server, no keys.",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "arpk": "bin/arpk.js" },
+  "files": ["bin", "lib", "data"],
+  "engines": { "node": ">=18" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AmateurGenius/arpk.git"
+  },
+  "keywords": ["near", "agent", "capability", "receipts", "eip712", "verification"],
+  "dependencies": {
+    "@noble/curves": "1.9.0",
+    "@noble/hashes": "1.8.0"
+  },
+  "scripts": {
+    "test": "node --test test/conformance.test.js"
+  },
+  "publishConfig": { "access": "public" }
+}

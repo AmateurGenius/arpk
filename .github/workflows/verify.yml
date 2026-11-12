@@ -99,6 +99,11 @@ jobs:
           ARPK_FUZZ_CASES: "100000"
       - name: check the bundle (schema, hashes, provenance, no secrets)
         run: node tools/check-bundle.mjs
+      - name: npm package: install, cross-language conformance, pack
+        run: |
+          npm install --no-audit --no-fund
+          npm test
+          npm pack --dry-run
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site/
