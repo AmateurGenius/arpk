@@ -15,9 +15,25 @@ action, and the contract enforces the owner's caps before any value moves.
 
 ## Try it
 
+**Dashboard** — <https://amateurgenius.github.io/arpk/> — the claim, the proof strip, the
+scenario theater, and the evidence. No login, no wallet, no install; works with the RPC
+blocked.
+
+**From the terminal** — an independent JavaScript implementation of the receipt format:
+
 ```
-make setup      # prints tool versions and checks the wasm target
-make verify     # runs the local test battery (68 tests)
+npx arpk demo bankr                  # replay the Grok/Bankr reconstruction
+npx arpk verify bundle               # recompute the bundle hash, validate every trace
+npx arpk bound --capacity 5000 --refill 10 --seconds 60
+npx arpk claims                      # the claims matrix with its env tags
+```
+
+**From the repo**:
+
+```
+make setup        # prints tool versions and checks the wasm target
+make verify       # runs the local test battery (69 tests)
+make judge-check  # build the evidence bundle, then validate it
 python3 tools/verify.py   # prints the claims table from measured results
 ```
 

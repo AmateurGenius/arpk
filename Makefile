@@ -6,7 +6,7 @@
 
 CONTRACT := contracts/near-vault
 
-.PHONY: setup verify verify-full demo fuzz clean
+.PHONY: setup verify verify-full demo fuzz judge-check clean
 
 setup:
 	@rustc --version
@@ -28,6 +28,12 @@ verify:
 verify-full: verify
 	cargo test --release -p arpk-core
 	@echo "sandbox + containment tiers run in CI (see .github/workflows/verify.yml)"
+
+# The honesty gate: build the bundle from real artifacts, then validate it.
+# CI runs this before deploying to Pages.
+judge-check:
+	node tools/build-site.mjs
+	node tools/check-bundle.mjs site/data
 
 # Volume tier (claim C0). Runs in CI on a real Linux runner; on Termux the release build
 # alone is most of the free disk. Counts and seeds are in the CI log.

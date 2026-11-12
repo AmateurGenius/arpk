@@ -1,0 +1,33 @@
+name: publish
+
+# Publishes the `arpk` npm package with npm provenance, so the registry shows a signed
+# link back to this commit. Triggered by a release or manually.
+#
+# The token is a repo secret (NPM_TOKEN) — never committed, never printed.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for npm provenance
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: install, cross-language conformance, size check
+        run: |
+          npm install --no-audit --no-fund
+          npm test
+          npm pack --dry-run
+      - name: publish with provenance
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
