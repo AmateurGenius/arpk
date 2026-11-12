@@ -102,6 +102,8 @@ jobs:
       - uses: actions/upload-pages-artifact@v7
         with:
           path: site/
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v5
 
   # CI tier: Kani on the `arpk-core` cap arithmetic (claim C10). Kani does not support
   # Termux, so this is CI-only. The harnesses live in crates/arpk-core/kani/ and are
