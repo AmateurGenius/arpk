@@ -44,6 +44,19 @@ jobs:
         run: cargo build --manifest-path contracts/near-vault/Cargo.toml --target wasm32-unknown-unknown --release
       - name: sandbox e2e (intent -> receipt -> on-chain transfer)
         run: cargo test --manifest-path contracts/near-vault/Cargo.toml --features sandbox --test e2e -- --nocapture
+        env:
+          # The e2e writes the recorded `baseline` trace here; build-site picks it up.
+          ARPK_TRACE_OUT: site/data/traces/baseline.json
+      - name: build the evidence bundle
+        run: node tools/build-site.mjs
+        env:
+          ARPK_CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARPK_FUZZ_CASES: "100000"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: evidence-bundle
+          path: site/data/
+          retention-days: 14
 
   # CI tier: volume evidence for C0. Release mode, real Linux runner. The model fuzz is
   # pure arithmetic; the differential drives the real contract through 10^4 operations.

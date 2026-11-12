@@ -39,7 +39,9 @@ pub struct Vault {
     /// Total deposited value. Direct transfers to the account do not raise this.
     ledger: u128,
     agents: LookupMap<Vec<u8>, Agent>,
-    kernel_keys: LookupMap<Vec<u8>, KernelKey>,
+    /// `IterableMap`, not `LookupMap`: the dashboard and the CLI enumerate the
+    /// registered kernel keys, and `LookupMap` cannot iterate.
+    kernel_keys: IterableMap<Vec<u8>, KernelKey>,
     used_nonces: IterableMap<Vec<u8>, u64>,
     approvals: LookupMap<Vec<u8>, Approval>,
     paused_venues: IterableSet<String>,
@@ -171,6 +173,26 @@ pub struct AgentDto {
     pub venues: Vec<VenueStateDto>,
 }
 
+/// One asset's live bucket. Amounts are decimal strings (see `AssetStateDto`).
+#[near(serializers = [json])]
+#[derive(Clone, Debug)]
+pub struct BucketDto {
+    pub capacity: U128,
+    pub refill_per_s: U128,
+    pub tokens: U128,
+    pub t_last_ms: U64,
+}
+
+/// A registered kernel key. This is the 64-byte public form `ecrecover` returns; the
+/// kernel's signing key never leaves the kernel process, so there is nothing secret here.
+#[near(serializers = [json])]
+#[derive(Clone, Debug)]
+pub struct KernelKeyDto {
+    pub public_key: Vec<u8>,
+    pub expiry_ms: U64,
+    pub revoked: bool,
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -234,7 +256,7 @@ impl Vault {
             owner,
             ledger: 0,
             agents: LookupMap::new(b"a"),
-            kernel_keys: LookupMap::new(b"k"),
+            kernel_keys: IterableMap::new(b"k"),
             used_nonces: IterableMap::new(b"n"),
             approvals: LookupMap::new(b"p"),
             paused_venues: IterableSet::new(b"v"),
@@ -605,6 +627,76 @@ impl Vault {
 
     pub fn is_nonce_used(&self, nonce: Vec<u8>) -> bool {
         self.used_nonces.contains_key(&nonce)
+    }
+
+    /// The owner-chosen caps for one agent's assets, without runtime state. This is what
+    /// the dashboard shows as "the bound the owner set".
+    pub fn get_hard_caps(&self, agent_id: Vec<u8>) -> Option<Vec<AssetCapsDto>> {
+        self.agents.get(&agent_id).map(|a| {
+            a.assets
+                .iter()
+                .map(|x| AssetCapsDto {
+                    asset: x.asset.clone(),
+                    per_call_cap: U128(x.per_call_cap),
+                    pct_cap_bps: U128(x.pct_cap_bps),
+                    approval_threshold: U128(x.approval_threshold),
+                    bucket_capacity: U128(x.bucket_capacity),
+                    bucket_refill_per_s: U128(x.bucket_refill_per_s),
+                })
+                .collect()
+        })
+    }
+
+    /// One asset's live bucket for an agent: capacity, refill rate, tokens now, and when
+    /// the bucket last moved.
+    pub fn get_bucket(&self, agent_id: Vec<u8>, asset: String) -> Option<BucketDto> {
+        self.agents.get(&agent_id).and_then(|a| {
+            a.assets
+                .iter()
+                .find(|x| x.asset == asset)
+                .map(|x| BucketDto {
+                    capacity: U128(x.bucket_capacity),
+                    refill_per_s: U128(x.bucket_refill_per_s),
+                    tokens: U128(x.bucket_tokens),
+                    t_last_ms: U64(x.bucket_t_last_ms),
+                })
+        })
+    }
+
+    /// Every registered kernel key. Public keys only.
+    pub fn get_kernel_keys(&self) -> Vec<KernelKeyDto> {
+        self.kernel_keys
+            .iter()
+            .map(|(public_key, k)| KernelKeyDto {
+                public_key: public_key.to_vec(),
+                expiry_ms: U64(k.expiry_ms),
+                revoked: k.revoked,
+            })
+            .collect()
+    }
+
+    /// One venue's live exposure for an agent.
+    pub fn get_venue(&self, agent_id: Vec<u8>, venue: String) -> Option<VenueStateDto> {
+        self.agents.get(&agent_id).and_then(|a| {
+            a.venues
+                .iter()
+                .find(|v| v.venue == venue)
+                .map(|v| VenueStateDto {
+                    venue: v.venue.clone(),
+                    exposure_cap: U128(v.exposure_cap),
+                    exposure: U128(v.exposure),
+                })
+        })
+    }
+
+    /// How many nonces have been consumed — a proxy for how much value has moved.
+    pub fn get_nonce_count(&self) -> U64 {
+        U64(self.used_nonces.len() as u64)
+    }
+
+    /// Venues the owner has paused.
+    pub fn paused_venues(&self) -> Vec<String> {
+        self.paused_venues.iter().cloned().collect()
     }
 
     pub fn owner(&self) -> AccountId {

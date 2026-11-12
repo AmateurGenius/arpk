@@ -6,3 +6,7 @@ target/
 .env
 node_modules/
 wasm-build.log
+
+# The evidence bundle is produced by CI (tools/build-site.mjs) and deployed to Pages.
+# It is never hand-edited and never committed.
+site/data/

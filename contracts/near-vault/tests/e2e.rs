@@ -21,6 +21,7 @@ use arpk_core::{class, verdict, MAX_RECEIPT_TTL_MS};
 use arpk_kernel::enforce::{self, SignIntent};
 use arpk_kernel::pdp;
 use arpk_kernel::receipt::{self, ActionInput, ReceiptRequest};
+use arpk_kernel::trace::{Metric, Step, Trace};
 
 /// The wasm this crate builds. CI builds it before running the e2e job.
 fn wasm_path() -> PathBuf {
@@ -475,6 +476,96 @@ async fn intent_to_receipt_to_on_chain_transfer() -> anyhow::Result<()> {
         "a revoked agent must be rejected, got: {revoke_err}"
     );
 
+    // The recorded baseline trace: every step above actually happened in this run.
+    write_baseline_trace(&kit, AMOUNT, tokens_before, tokens_after)?;
+
+    Ok(())
+}
+
+fn hex32(b: &[u8]) -> String {
+    b.iter().map(|x| format!("{x:02x}")).collect()
+}
+
+/// Writes the `baseline` trace from this real run, but only when `ARPK_TRACE_OUT` is set
+/// (CI sets it) — a local run must not litter the working tree.
+///
+/// Every step here is something that actually happened in this test: the transfer that
+/// moved value, the replay that was refused, and the bucket state read back from the chain.
+fn write_baseline_trace(
+    kit: &Kit,
+    amount: u128,
+    tokens_before: u128,
+    tokens_after: u128,
+) -> anyhow::Result<()> {
+    let out = match std::env::var("ARPK_TRACE_OUT") {
+        Ok(p) if !p.is_empty() => std::path::PathBuf::from(p),
+        _ => return Ok(()),
+    };
+
+    let step = |i: u32, lane: &str, kind: &str, label: &str| Step {
+        i,
+        lane: lane.to_string(),
+        kind: kind.to_string(),
+        label: label.to_string(),
+        label_source: None,
+        data: None,
+        authority: None,
+        bucket: None,
+        audit_hash: None,
+        verdict: None,
+        reason: None,
+        policy_ids: None,
+        funds_out: None,
+        tx: None,
+    };
+
+    let mut steps = vec![
+        step(0, "agent", "intent", &format!("send {amount} to dest 0")),
+        step(1, "kernel", "verdict", "allow"),
+        {
+            let mut s = step(2, "vault", "outcome", "value moved, bucket debited");
+            s.funds_out = Some(amount.to_string());
+            s.bucket = Some(arpk_kernel::trace::BucketSnapshot {
+                tokens: tokens_after.to_string(),
+                capacity: tokens_before.to_string(),
+            });
+            s
+        },
+        step(3, "agent", "intent", "replay the same receipt"),
+        {
+            let mut s = step(4, "kernel", "verdict", "deny");
+            s.verdict = Some("deny".to_string());
+            s.reason = Some("ARPK:receipt.replayed".to_string());
+            s.policy_ids = Some(vec!["nonce-store".to_string()]);
+            s
+        },
+    ];
+
+    // Renumber so the file matches the schema's "numbered from 0" rule.
+    for (i, s) in steps.iter_mut().enumerate() {
+        s.i = i as u32;
+    }
+
+    let trace = Trace {
+        schema: arpk_kernel::trace::SCHEMA.to_string(),
+        id: "baseline".to_string(),
+        title: "Baseline: a bounded transfer and the replay refused around it".to_string(),
+        mode: "sandbox".to_string(),
+        counterfactual: false,
+        simulated: vec![],
+        manifest_hash: hex32(&kit.manifest_hash),
+        steps,
+        metric: Metric {
+            funds_out: amount.to_string(),
+            cap: tokens_before.to_string(),
+            holds: amount <= tokens_before,
+        },
+    };
+    trace.validate().map_err(|e| anyhow::anyhow!("baseline trace invalid: {e}"))?;
+
+    std::fs::create_dir_all(out.parent().unwrap_or(std::path::Path::new(".")))?;
+    std::fs::write(&out, serde_json::to_string_pretty(&trace)?)?;
+    eprintln!("e2e: wrote baseline trace to {}", out.display());
     Ok(())
 }
 

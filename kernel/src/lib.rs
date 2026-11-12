@@ -14,9 +14,11 @@
 //! - [`serve`]     — JSON lines over a unix socket
 
 pub mod enforce;
+pub mod intent;
 pub mod manifest;
 pub mod monitors;
 pub mod pdp;
 pub mod receipt;
 pub mod rpc;
 pub mod serve;
+pub mod trace;

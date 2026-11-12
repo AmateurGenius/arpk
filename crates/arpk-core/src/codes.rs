@@ -50,6 +50,41 @@ pub enum Code {
 }
 
 impl Code {
+    /// Every reason code. Validators use this to reject invented codes — a trace or a
+    /// report that cites a code not in this list is a bug, not a finding.
+    pub const ALL: &'static [Code] = &[
+        Code::ManifestMissing,
+        Code::ManifestExpired,
+        Code::ManifestHashMismatch,
+        Code::ManifestRevoked,
+        Code::ReceiptBadSignature,
+        Code::ReceiptKeyInvalid,
+        Code::ReceiptReplayed,
+        Code::ReceiptExpired,
+        Code::ReceiptNotYetValid,
+        Code::ReceiptTtlTooLong,
+        Code::ReceiptActionHashMismatch,
+        Code::ReceiptClassMismatch,
+        Code::ValuePerCallExceeded,
+        Code::ValueBucketExceeded,
+        Code::ValuePctExceeded,
+        Code::ValueApprovalRequired,
+        Code::ValueOverflow,
+        Code::VenuePaused,
+        Code::VenueExposureCap,
+        Code::TimeRegression,
+        Code::Malformed,
+        Code::PolicyEvalError,
+        Code::ActionNotPermitted,
+        Code::ActionUnclassified,
+        Code::AuthorityDegradedCap,
+        Code::AuthorityFrozen,
+        Code::AuthorityAskOnly,
+        Code::TierAdministrativeDenied,
+        Code::LeaseStale,
+        Code::ApprovalTimeout,
+    ];
+
     pub fn as_str(self) -> &'static str {
         use Code::*;
         match self {
