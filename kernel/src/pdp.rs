@@ -111,6 +111,7 @@ pub fn request(
     authority: &str,
     stale: bool,
     amount: Option<i64>,
+    degraded_cap: Option<i64>,
     schema: Option<&Schema>,
 ) -> Request {
     let principal = EntityUid::from_str(&format!("Agent::{agent_id:?}")).unwrap();
@@ -130,6 +131,12 @@ pub fn request(
         pairs.push((
             "amount".to_string(),
             RestrictedExpression::from_str(&amount.to_string()).unwrap(),
+        ));
+    }
+    if let Some(degraded_cap) = degraded_cap {
+        pairs.push((
+            "degraded_cap".to_string(),
+            RestrictedExpression::from_str(&degraded_cap.to_string()).unwrap(),
         ));
     }
     let context = Context::from_pairs(pairs).unwrap();
@@ -176,7 +183,15 @@ mod tests {
     #[test]
     fn full_authority_permits_a_live_transfer() {
         let pdp = Pdp::load().unwrap();
-        let req = request("agent-0", "venue-0", "full", false, Some(1_000), None);
+        let req = request(
+            "agent-0",
+            "venue-0",
+            "full",
+            false,
+            Some(1_000),
+            Some(0),
+            None,
+        );
         let entities = entities("agent-0", "venue-0", false, true, "standard");
         assert_eq!(pdp.evaluate(&req, &entities), Verdict::Allow);
     }
@@ -184,7 +199,15 @@ mod tests {
     #[test]
     fn paused_venue_denies_with_action_not_permitted() {
         let pdp = Pdp::load().unwrap();
-        let req = request("agent-0", "venue-0", "full", false, Some(1_000), None);
+        let req = request(
+            "agent-0",
+            "venue-0",
+            "full",
+            false,
+            Some(1_000),
+            Some(0),
+            None,
+        );
         let entities = entities("agent-0", "venue-0", true, true, "standard");
         assert_eq!(
             pdp.evaluate(&req, &entities),
@@ -200,9 +223,50 @@ mod tests {
     /// evaluation. Cedar skips that policy and records a diagnostic; the kernel must
     /// deny with the exact `ARPK:policy.eval_error` code.
     #[test]
+    fn a_degraded_session_is_bounded_by_the_manifests_degraded_cap() {
+        let pdp = Pdp::load().unwrap();
+        let entities = entities("agent-0", "venue-0", false, true, "standard");
+
+        // The manifest raised the degraded cap to 100, so 50 is permitted.
+        let within = request(
+            "agent-0",
+            "venue-0",
+            "degraded",
+            false,
+            Some(50),
+            Some(100),
+            None,
+        );
+        assert_eq!(pdp.evaluate(&within, &entities), Verdict::Allow);
+
+        // 101 is over it, and the policy says so.
+        let over = request(
+            "agent-0",
+            "venue-0",
+            "degraded",
+            false,
+            Some(101),
+            Some(100),
+            None,
+        );
+        assert_eq!(
+            pdp.evaluate(&over, &entities),
+            Verdict::Deny(Code::ActionNotPermitted)
+        );
+    }
+
+    #[test]
     fn forced_error_denies_with_the_exact_code() {
         let pdp = Pdp::load().unwrap();
-        let req = request("agent-0", "venue-0", "full", false, Some(1_000), None);
+        let req = request(
+            "agent-0",
+            "venue-0",
+            "full",
+            false,
+            Some(1_000),
+            Some(0),
+            None,
+        );
         let entities = entities("agent-0", "venue-0", false, false, "standard");
         assert_eq!(
             pdp.evaluate(&req, &entities),
@@ -216,7 +280,7 @@ mod tests {
     #[test]
     fn missing_context_amount_is_also_a_forced_error() {
         let pdp = Pdp::load().unwrap();
-        let req = request("agent-0", "venue-0", "degraded", false, None, None);
+        let req = request("agent-0", "venue-0", "degraded", false, None, Some(0), None);
         let entities = entities("agent-0", "venue-0", false, true, "standard");
         assert_eq!(
             pdp.evaluate(&req, &entities),
@@ -243,6 +307,10 @@ mod tests {
             (
                 "amount".to_string(),
                 RestrictedExpression::from_str("1000").unwrap(),
+            ),
+            (
+                "degraded_cap".to_string(),
+                RestrictedExpression::from_str("0").unwrap(),
             ),
         ])
         .unwrap();

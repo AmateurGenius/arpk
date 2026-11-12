@@ -287,6 +287,7 @@ fn kernel_sign(kit: &Kit, key: &receipt::KernelKey, spec: &IntentSpec) -> anyhow
             exposure: 0,
             exposure_cap: EXPOSURE_CAP,
             approval_threshold: u128::MAX,
+            degraded_cap: 0,
             approval_expiry_ms: None,
         };
         enforce::enforce(&kit.pdp, &intent)
@@ -482,6 +483,23 @@ async fn intent_to_receipt_to_on_chain_transfer() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Resolve a relative output path against the repository root, not the crate directory —
+/// `cargo test` runs test binaries with the crate as their working directory.
+fn resolve_out(dir: std::path::PathBuf) -> std::path::PathBuf {
+    if dir.is_absolute() {
+        return dir;
+    }
+    let mut p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf();
+    loop {
+        if p.join(".git").exists() {
+            return p.join(&dir);
+        }
+        if !p.pop() {
+            return dir;
+        }
+    }
+}
+
 fn hex32(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
@@ -498,7 +516,7 @@ fn write_baseline_trace(
     tokens_after: u128,
 ) -> anyhow::Result<()> {
     let out = match std::env::var("ARPK_TRACE_OUT") {
-        Ok(p) if !p.is_empty() => std::path::PathBuf::from(p),
+        Ok(p) if !p.is_empty() => resolve_out(std::path::PathBuf::from(p)),
         _ => return Ok(()),
     };
 
@@ -561,7 +579,9 @@ fn write_baseline_trace(
             holds: amount <= tokens_before,
         },
     };
-    trace.validate().map_err(|e| anyhow::anyhow!("baseline trace invalid: {e}"))?;
+    trace
+        .validate()
+        .map_err(|e| anyhow::anyhow!("baseline trace invalid: {e}"))?;
 
     std::fs::create_dir_all(out.parent().unwrap_or(std::path::Path::new(".")))?;
     std::fs::write(&out, serde_json::to_string_pretty(&trace)?)?;

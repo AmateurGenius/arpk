@@ -61,6 +61,9 @@ struct ActionEvent {
     exposure_cap: Option<u128>,
     #[serde(default, deserialize_with = "opt_u128_from")]
     approval_threshold: Option<u128>,
+    /// The manifest's per-asset degraded cap, for a degraded session.
+    #[serde(default)]
+    degraded_cap: Option<u128>,
     #[serde(default)]
     approval_expiry_ms: Option<u64>,
 }
@@ -206,6 +209,7 @@ impl ServeState {
             exposure: e.exposure.unwrap_or(0),
             exposure_cap: e.exposure_cap.unwrap_or(u128::MAX),
             approval_threshold: e.approval_threshold.unwrap_or(u128::MAX),
+            degraded_cap: e.degraded_cap.unwrap_or(0),
             approval_expiry_ms: e.approval_expiry_ms,
         };
 

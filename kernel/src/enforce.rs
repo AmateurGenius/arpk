@@ -27,6 +27,8 @@ pub struct SignIntent {
     pub exposure: u128,
     pub exposure_cap: u128,
     pub approval_threshold: u128,
+    /// The manifest's per-asset degraded cap. A degraded session may not exceed it.
+    pub degraded_cap: u128,
     pub approval_expiry_ms: Option<u64>,
 }
 
@@ -39,15 +41,24 @@ pub fn enforce(pdp: &pdp::Pdp, intent: &SignIntent) -> Result<(), Code> {
         true,
         &intent.agent_tier,
     );
+    // The Authority Ledger bounds a degraded session by the manifest's degraded_cap. This
+    // runs *before* the PDP so the denial names the cause exactly, rather than surfacing as
+    // a generic "not permitted".
+    if intent.authority == "degraded" && intent.action.amount > intent.degraded_cap {
+        return Err(Code::AuthorityDegradedCap);
+    }
+
     // Cedar's `Long` is i64; larger amounts are saturated for the policy check only. The
     // contract's caps remain the bound on the real value.
     let cedar_amount = i64::try_from(intent.action.amount).unwrap_or(i64::MAX);
+    let cedar_degraded = i64::try_from(intent.degraded_cap).unwrap_or(i64::MAX);
     let request = pdp::request(
         &hex(&intent.agent_id),
         &intent.action.venue,
         &intent.authority,
         intent.stale,
         Some(cedar_amount),
+        Some(cedar_degraded),
         Some(pdp.schema()),
     );
     if let pdp::Verdict::Deny(code) = pdp.evaluate(&request, &entities) {

@@ -262,6 +262,10 @@ fn cmd_sign(args: &[String]) -> Result<(), String> {
             .map_err(|e| format!("--approval-threshold: {e}"))?,
         None => u128::MAX,
     };
+    let degraded_cap: u128 = match arg(args, "--degraded-cap") {
+        Some(v) => v.parse().map_err(|e| format!("--degraded-cap: {e}"))?,
+        None => 0,
+    };
     let approval_expiry_ms: Option<u64> = match arg(args, "--approval-expiry-ms") {
         Some(v) => Some(
             v.parse()
@@ -307,6 +311,7 @@ fn cmd_sign(args: &[String]) -> Result<(), String> {
         exposure,
         exposure_cap,
         approval_threshold,
+        degraded_cap,
         approval_expiry_ms,
     };
     enforce::enforce(&pdp, &intent).map_err(|e| e.as_str().to_string())?;

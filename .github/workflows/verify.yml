@@ -54,8 +54,8 @@ jobs:
           ARPK_FUZZ_CASES: "100000"
       - uses: actions/upload-artifact@v7
         with:
-          name: evidence-bundle
-          path: site/data/
+          name: baseline-trace
+          path: site/data/traces/baseline.json
           retention-days: 14
 
   # CI tier: volume evidence for C0. Release mode, real Linux runner. The model fuzz is
@@ -69,6 +69,39 @@ jobs:
         run: PROPTEST_CASES=100000 cargo test --release -p arpk-core --test fuzz -- --nocapture
       - name: native differential at volume (10^4 steps)
         run: DIFFERENTIAL_STEPS=10000 cargo test --release --manifest-path contracts/near-vault/Cargo.toml --test differential -- --nocapture
+
+  # The judge surface's data: one bundle, one hash, built from real artifacts.
+  # Needs the e2e job for the recorded baseline trace.
+  bundle:
+    runs-on: ubuntu-latest
+    needs: [e2e, fuzz]
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - name: download the recorded baseline trace
+        uses: actions/download-artifact@v7
+        with:
+          name: baseline-trace
+          path: site/data/traces
+      - name: run the battery and generate claims
+        run: PROPTEST_CASES=8 python3 tools/verify.py
+      - name: scenario traces (bankr, lobstar)
+        run: cargo test -p arpkd --test scenarios
+        env:
+          ARPK_SCENARIO_OUT: site/data/traces
+      - name: build the evidence bundle
+        run: node tools/build-site.mjs
+        env:
+          ARPK_CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARPK_FUZZ_CASES: "100000"
+      - name: check the bundle (schema, hashes, provenance, no secrets)
+        run: node tools/check-bundle.mjs
+      - uses: actions/upload-pages-artifact@v7
+        with:
+          path: site/
 
   # CI tier: Kani on the `arpk-core` cap arithmetic (claim C10). Kani does not support
   # Termux, so this is CI-only. The harnesses live in crates/arpk-core/kani/ and are

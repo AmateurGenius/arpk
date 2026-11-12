@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://test.rpc.fastnear.com https://rpc.testnet.fastnear.com https://near-testnet.drpc.org; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'">
+<title>ARPK — bounded agent actions</title>
+<meta name="description" content="ARPK makes the cost of an agent failure a number the owner chose in advance. Every figure on this page comes from a CI artifact with provenance.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">◆</span>
+    <span class="brand-name">ARPK</span>
+    <span class="brand-sub">bounded agent actions</span>
+  </div>
+  <nav class="nav" aria-label="Views">
+    <a href="#/proof"    data-route="proof"    class="nav-link">Proof</a>
+    <a href="#/theater"  data-route="theater"  class="nav-link">Theater</a>
+    <a href="#/evidence" data-route="evidence" class="nav-link">Evidence</a>
+  </nav>
+</header>
+
+<main id="main" tabindex="-1">
+  <div id="view" class="view"><p class="loading">Loading the evidence bundle…</p></div>
+</main>
+
+<footer class="provenance" id="provenance">
+  <div class="provenance-inner">
+    <span class=" prov-label">Evidence bundle</span>
+    <span id="prov-run">run —</span>
+    <span id="prov-commit">commit —</span>
+    <span id="prov-time">generated —</span>
+    <span id="prov-hash">sha256 —</span>
+  </div>
+  <p class="prov-note">
+    Computed here from committed artifacts. No ARPK server, no wallet, no keys.
+    <a href="#/evidence">Read the non-claims</a>.
+  </p>
+</footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

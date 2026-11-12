@@ -9,9 +9,11 @@
 permit(principal is Agent, action == Action::"execute_value", resource is Venue)
 when { context.authority == "full" && !context.stale && !resource.paused };
 
-// permit-degraded: the degraded cap is zero, so only zero-value transfers pass.
+// permit-degraded: a degraded session is bounded by the manifest's degraded_cap, which the
+// owner chose. The default is zero, so a manifest that does not raise it permits only
+// zero-value transfers.
 permit(principal is Agent, action == Action::"execute_value", resource is Venue)
-when { context.authority == "degraded" && !context.stale && !resource.paused && context.amount <= 0 };
+when { context.authority == "degraded" && !context.stale && !resource.paused && context.amount <= context.degraded_cap };
 
 // forbid-stale
 forbid(principal is Agent, action == Action::"execute_value", resource is Venue)

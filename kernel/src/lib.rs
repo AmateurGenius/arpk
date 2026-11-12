@@ -13,6 +13,7 @@
 //! - [`rpc`]       — the NEAR view-call client used by the lease monitor
 //! - [`serve`]     — JSON lines over a unix socket
 
+pub mod authority;
 pub mod enforce;
 pub mod intent;
 pub mod manifest;

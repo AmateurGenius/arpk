@@ -20,5 +20,6 @@ action execute_value appliesTo {
     authority: __cedar::String,
     stale: __cedar::Bool,
     amount: __cedar::Long,
+    degraded_cap: __cedar::Long,
   }
 };
