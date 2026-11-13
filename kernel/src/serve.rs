@@ -17,7 +17,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::enforce::{self, SignIntent};
-use crate::{monitors, pdp, receipt};
+use crate::{intent, manifest, monitors, pdp, receipt};
 
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
@@ -41,7 +41,12 @@ struct ActionEvent {
     #[serde(deserialize_with = "hex_bytes")]
     context_hash: Vec<u8>,
     contract: String,
-    action: ValueActionIn,
+    /// The chain id, for the receipt domain. The contract checks it on-chain.
+    chain: String,
+    /// The venue id. Must be one the manifest issued.
+    venue: String,
+    /// Handle-based intent. `deny_unknown_fields`: an injected destination is unrepresentable.
+    action: intent::Intent,
     authority: String,
     #[serde(default = "default_tier")]
     agent_tier: String,
@@ -73,18 +78,6 @@ fn default_tier() -> String {
 }
 
 #[derive(Deserialize)]
-struct ValueActionIn {
-    chain: String,
-    venue: String,
-    to: String,
-    asset: String,
-    #[serde(deserialize_with = "u128_from")]
-    amount: u128,
-    #[serde(deserialize_with = "hex_bytes")]
-    memo_hash: Vec<u8>,
-}
-
-#[derive(Deserialize)]
 struct ObservationEvent {
     /// keccak256 of the observation, for the audit chain.
     #[serde(deserialize_with = "hex_bytes")]
@@ -105,14 +98,18 @@ pub struct ServeState {
     ledger: monitors::SpendLedger,
     pdp: pdp::Pdp,
     observations: Vec<ObservationEvent>,
+    /// The owner's manifest. The agent names *handles* into this; the kernel resolves them,
+    /// so a destination the manifest never issued cannot be expressed.
+    manifest: manifest::Manifest,
 }
 
 impl ServeState {
-    pub fn new(pdp: pdp::Pdp) -> Self {
+    pub fn new(pdp: pdp::Pdp, manifest: manifest::Manifest) -> Self {
         Self {
             ledger: monitors::SpendLedger::new(),
             pdp,
             observations: Vec::new(),
+            manifest,
         }
     }
 
@@ -179,9 +176,26 @@ impl ServeState {
             Ok(v) => v,
             Err(_) => return denial(Code::Malformed),
         };
-        let memo_hash = match fixed::<32>(&e.action.memo_hash) {
-            Ok(v) => v,
+
+        // The kernel holds the owner's manifest. The receipt must name the manifest the
+        // kernel actually read, so a file that does not hash to the on-chain value is refused.
+        let held = match manifest::manifest_hash(&self.manifest) {
+            Ok(h) => h,
             Err(_) => return denial(Code::Malformed),
+        };
+        if held != manifest_hash {
+            return denial(Code::ManifestHashMismatch);
+        }
+
+        // The venue is enumerated too: an unissued venue is not a place value may go.
+        if !self.manifest.value.venues.iter().any(|v| v.id == e.venue) {
+            return denial(Code::ActionUnclassified);
+        }
+
+        // Handles -> the exact action. An unissued handle is refused here, before the PDP.
+        let resolved = match intent::resolve(&self.manifest, &e.action, &e.chain, &e.venue) {
+            Ok(r) => r,
+            Err(code) => return denial(code),
         };
 
         let issued_ms = e.issued_ms.unwrap_or_else(now_ms);
@@ -191,14 +205,7 @@ impl ServeState {
             nonce,
             manifest_hash,
             context_hash,
-            action: receipt::ActionInput {
-                chain: e.action.chain,
-                venue: e.action.venue,
-                to: e.action.to,
-                asset: e.action.asset,
-                amount: e.action.amount,
-                memo_hash,
-            },
+            action: resolved.action,
             authority: e.authority,
             agent_tier: e.agent_tier,
             venue_paused: e.venue_paused,
@@ -310,13 +317,6 @@ fn u128_from_value(v: Value) -> Result<u128, String> {
     }
 }
 
-fn u128_from<'de, D>(d: D) -> Result<u128, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    u128_from_value(Value::deserialize(d)?).map_err(serde::de::Error::custom)
-}
-
 fn opt_u128_from<'de, D>(d: D) -> Result<Option<u128>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -347,11 +347,14 @@ fn denial(code: Code) -> String {
 }
 
 /// Serves JSON lines on a unix socket until the process is killed.
-pub fn serve(socket_path: &str) -> Result<(), String> {
+///
+/// `manifest` is the owner's manifest, loaded by the caller. Every action is resolved
+/// against it, so the agent cannot name a destination the manifest did not issue.
+pub fn serve(socket_path: &str, manifest: manifest::Manifest) -> Result<(), String> {
     let _ = std::fs::remove_file(socket_path);
     let listener = UnixListener::bind(socket_path).map_err(|e| e.to_string())?;
     let pdp = pdp::Pdp::load().map_err(|e| e.to_string())?;
-    let mut state = ServeState::new(pdp);
+    let mut state = ServeState::new(pdp, manifest);
     for stream in listener.incoming() {
         if let Ok(stream) = stream {
             let _ = handle_client(stream, &mut state);
@@ -376,18 +379,42 @@ mod tests {
     use super::*;
 
     fn state() -> ServeState {
-        ServeState::new(pdp::Pdp::load().unwrap())
+        ServeState::new(pdp::Pdp::load().unwrap(), manifest())
     }
 
+    /// The manifest the tests resolve handles against: one action, two destinations, one
+    /// venue — so an unissued handle is easy to express and easy to check.
+    fn manifest() -> manifest::Manifest {
+        let text = r#"{
+            "agent_id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "expiry_ms":1800000000000,
+            "lease_ttl_s":3600,
+            "owner":"owner.test.near",
+            "permitted_actions":[{"tool":"transfer","tier":"value"}],
+            "value":{
+                "assets":[{"asset":"near","per_call_cap":5000,"bucket":{"capacity":5000,"refill_per_s":10},
+                           "pct_of_balance_cap_bps":10000,"approval_threshold":5000,"degraded_cap":0}],
+                "destinations":["alice.test.near","bob.test.near"],
+                "venues":[{"id":"venue-a","exposure_cap":10000}]
+            }
+        }"#;
+        serde_json::from_str(text).expect("the fixture manifest must parse")
+    }
+
+    fn manifest_hash_hex() -> String {
+        let h = manifest::manifest_hash(&manifest()).expect("the fixture manifest must hash");
+        h.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    /// A valid action line. The nonce is the only varying field.
     fn action_line(nonce: &str) -> String {
         format!(
-            r#"{{"type":"action","agent_id":"{}","session_id":"{}","nonce":"{}","manifest_hash":"{}","context_hash":"{}","contract":"vault.test.near","authority":"full","action":{{"chain":"near","venue":"venue-a","to":"dest.test.near","asset":"near","amount":100,"memo_hash":"{}"}},"issued_ms":1762400000000,"ttl_ms":60000}}"#,
+            r#"{{"type":"action","agent_id":"{}","session_id":"{}","nonce":"{}","manifest_hash":"{}","context_hash":"{}","contract":"vault.test.near","chain":"near","venue":"venue-a","authority":"full","action":{{"action":0,"dest":1,"amount":"100"}},"issued_ms":1762400000000,"ttl_ms":60000}}"#,
             "aa".repeat(32),
             "01".repeat(16),
             nonce,
-            "11".repeat(32),
+            manifest_hash_hex(),
             "22".repeat(32),
-            "00".repeat(32),
         )
     }
 
@@ -485,5 +512,58 @@ mod tests {
         assert!(out.contains(Code::ActionNotPermitted.as_str()), "{out}");
         let state: Value = serde_json::from_str(&s.handle_line(r#"{"type":"state"}"#)).unwrap();
         assert_eq!(state["reservations"], 0);
+    }
+
+    #[test]
+    fn an_unissued_action_handle_is_unclassified() {
+        let mut s = state();
+        let line = action_line(&"04".repeat(16)).replace(
+            r#""action":{"action":0,"dest":1,"amount":"100"}"#,
+            r#""action":{"action":7,"amount":"1"}"#,
+        );
+        let out = s.handle_line(&line);
+        assert!(out.contains(Code::ActionUnclassified.as_str()), "{out}");
+    }
+
+    #[test]
+    fn an_unissued_destination_handle_is_unclassified() {
+        let mut s = state();
+        let line = action_line(&"05".repeat(16)).replace(
+            r#""action":{"action":0,"dest":1,"amount":"100"}"#,
+            r#""action":{"action":0,"dest":9,"amount":"1"}"#,
+        );
+        let out = s.handle_line(&line);
+        assert!(out.contains(Code::ActionUnclassified.as_str()), "{out}");
+    }
+
+    /// The end-to-end form of the claim: an injected `to` is not merely refused by policy,
+    /// it is unrepresentable — the schema has no field for it.
+    #[test]
+    fn an_injected_destination_is_malformed() {
+        let mut s = state();
+        let line = action_line(&"06".repeat(16)).replace(
+            r#""action":{"action":0,"dest":1,"amount":"100"}"#,
+            r#""action":{"action":0,"dest":1,"amount":"100","to":"attacker.test.near"}"#,
+        );
+        let out = s.handle_line(&line);
+        assert!(out.contains(Code::Malformed.as_str()), "{out}");
+    }
+
+    #[test]
+    fn an_unissued_venue_is_unclassified() {
+        let mut s = state();
+        let line =
+            action_line(&"07".repeat(16)).replace(r#""venue":"venue-a""#, r#""venue":"venue-z""#);
+        let out = s.handle_line(&line);
+        assert!(out.contains(Code::ActionUnclassified.as_str()), "{out}");
+    }
+
+    #[test]
+    fn a_manifest_hash_that_does_not_match_the_held_manifest_is_refused() {
+        let mut s = state();
+        let line =
+            action_line(&"08".repeat(16)).replace(manifest_hash_hex().as_str(), &"ff".repeat(32));
+        let out = s.handle_line(&line);
+        assert!(out.contains(Code::ManifestHashMismatch.as_str()), "{out}");
     }
 }

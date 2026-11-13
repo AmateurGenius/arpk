@@ -39,14 +39,24 @@ CLAIMS = {
         "rather than adjudicates.",
     ),
     "C2": (
-        "The action surface is enumerated: intents name manifest-issued handles, and an "
-        "intent the manifest never issued cannot even be expressed.",
-        ["intent::tests"],
-        ["local"],
-        "The schema carries deny_unknown_fields and no `to` field, so an injected "
-        "\"send to 0xATTACKER\" fails as ARPK:malformed before the policy engine sees it. "
-        "An unissued handle is ARPK:action.unclassified. This is the no-designation-without-"
-        "authority property.",
+        "The action surface is enumerated end to end: the agent names manifest-issued "
+        "handles, and an intent the manifest never issued cannot even be expressed.",
+        [
+            "intent::tests",
+            "an_unissued_action_handle",
+            "an_unissued_destination_handle",
+            "an_injected_destination",
+            "an_unissued_venue",
+            "a_manifest_hash_that_does_not_match",
+        ],
+        ["local", "ci"],
+        "The daemon resolves the agent's handles against the owner's manifest "
+        "(`arpkd serve|sign --manifest <file>`). The schema carries deny_unknown_fields and "
+        "no `to` field, so an injected \"send to 0xATTACKER\" fails as ARPK:malformed before "
+        "the policy engine sees it; an unissued action, destination or venue handle is "
+        "ARPK:action.unclassified; a manifest file that does not hash to the on-chain value "
+        "is ARPK:manifest.hash_mismatch. This is the no-designation-without-authority "
+        "property.",
     ),
     "C3": (
         "Authority attenuates with provenance: untrusted ingress shrinks the session's caps.",

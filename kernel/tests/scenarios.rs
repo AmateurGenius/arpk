@@ -15,9 +15,10 @@ use arpk_core::caps::ValueCaps;
 use arpk_core::codes::Code;
 use arpk_kernel::authority::AuthorityLedger;
 use arpk_kernel::enforce::{self, SignIntent};
-use arpk_kernel::manifest::Manifest;
+use arpk_kernel::manifest::{self, Manifest};
 use arpk_kernel::pdp;
 use arpk_kernel::receipt::ActionInput;
+use arpk_kernel::serve;
 use arpk_kernel::trace::{BucketSnapshot, Metric, Step, Trace};
 
 const MANIFEST: &str = r#"{
@@ -276,6 +277,109 @@ fn lobstar_a_decimal_error_is_bounded_by_the_caps() {
             "the recipient and the venue".to_string(),
         ],
         manifest_hash: "0x00".to_string(),
+        steps,
+        metric: Metric {
+            funds_out: funds_out.to_string(),
+            cap: "5000".to_string(),
+            holds: funds_out <= 5000,
+        },
+    });
+}
+
+/// An action line for the enumerated surface. `nonce` must be unique per call on the same
+/// `ServeState`, because a signed action reserves its nonce.
+fn action_line(manifest_hash_hex: &str, nonce: &str, action_json: &str) -> String {
+    format!(
+        r#"{{"type":"action","agent_id":"{}","session_id":"{}","nonce":"{}","manifest_hash":"{}","context_hash":"{}","contract":"vault.test.near","chain":"near","venue":"venue-a","authority":"full","action":{},"issued_ms":1762400000000,"ttl_ms":60000}}"#,
+        "aa".repeat(32),
+        "01".repeat(16),
+        nonce,
+        manifest_hash_hex,
+        "22".repeat(32),
+        action_json,
+    )
+}
+
+/// The enumerated surface, exercised through the real daemon path (`serve`).
+///
+/// This is a *recorded* trace, not a reconstruction: `ServeState::handle_line` is the same
+/// code `arpkd serve` runs. The agent names a handle; the kernel resolves it against the
+/// owner's manifest; a destination the manifest never issued is unrepresentable.
+#[test]
+fn enumerated_an_injected_destination_is_unrepresentable() {
+    let m = manifest();
+    let hash = manifest::manifest_hash(&m).expect("the scenario manifest must hash");
+    let hash_hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
+    let mut state = serve::ServeState::new(
+        pdp::Pdp::load().expect("the policy set must load"),
+        m.clone(),
+    );
+
+    // A handle the manifest issued resolves and is signed.
+    let issued = action_line(
+        &hash_hex,
+        &"03".repeat(16),
+        r#"{"action":0,"dest":1,"amount":"40"}"#,
+    );
+    let issued_out = state.handle_line(&issued);
+    assert!(issued_out.contains("\"ok\":true"), "{issued_out}");
+
+    // A destination the manifest never issued cannot be written: there is no `to` field.
+    let injected = action_line(
+        &hash_hex,
+        &"04".repeat(16),
+        r#"{"action":0,"dest":1,"amount":"40","to":"0xATTACKER"}"#,
+    );
+    let injected_out = state.handle_line(&injected);
+    assert!(
+        injected_out.contains(Code::Malformed.as_str()),
+        "an injected destination must be ARPK:malformed, got {injected_out}"
+    );
+
+    // Nothing was signed for the injected intent, so no value moves.
+    let funds_out = 0u128;
+    let mut steps = vec![
+        {
+            let mut s = step(
+                0,
+                "agent",
+                "intent",
+                "send 40 — destination injected as a raw `to`",
+            );
+            s.data = Some(serde_json::json!({
+                "action": 0, "dest": 1, "amount": "40", "to": "0xATTACKER"
+            }));
+            s
+        },
+        {
+            let mut s = step(
+                1,
+                "kernel",
+                "verdict",
+                "deny — the schema has no `to` field",
+            );
+            s.verdict = Some("deny".to_string());
+            s.reason = Some(Code::Malformed.as_str().to_string());
+            s
+        },
+        {
+            let mut s = step(2, "vault", "outcome", "funds out 0");
+            s.funds_out = Some("0".to_string());
+            s
+        },
+    ];
+    for (i, s) in steps.iter_mut().enumerate() {
+        s.i = i as u32;
+    }
+
+    emit(&Trace {
+        schema: arpk_kernel::trace::SCHEMA.to_string(),
+        id: "enumerated".to_string(),
+        title: "The enumerated surface — an injected destination cannot be expressed".to_string(),
+        mode: "sandbox".to_string(),
+        counterfactual: false,
+        simulated: vec![],
+        manifest_hash: format!("0x{hash_hex}"),
         steps,
         metric: Metric {
             funds_out: funds_out.to_string(),

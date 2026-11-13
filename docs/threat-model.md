@@ -31,7 +31,7 @@ recomputes the action hash, checks the manifest, the time window, the TTL, the n
 caps, the approval and the venue exposure, and only then moves value.
 
 So a kernel that signs everything an attacker asks for produces receipts that the contract
-still refuses once the caps are reached. This is the central claim (C0) and it is what the
+still refuses once the caps are reached. This is the central claim (C8) and it is what the
 property tests in `crates/arpk-core/tests/fuzz.rs` exercise: the same bound holds in both
 honest and malicious-kernel modes because the kernel's behaviour is not an input to the
 bound.

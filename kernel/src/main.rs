@@ -1,12 +1,13 @@
 //! `arpkd` — the ARPK kernel daemon (TEE: simulator).
 //!
-//! WP1b ships the CLI first: it is the minimum the plan's cut rule keeps. `serve` and
-//! the live monitors follow.
-//!
 //! - `public-key`    — print the 64-byte kernel key the contract registers
 //! - `manifest-hash` — canonicalize a manifest file, print its on-chain hash
-//! - `sign`          — evaluate the Cedar PDP, then sign; prints one JSON line that is
-//!   exactly the argument list of the vault's `execute_value`
+//! - `serve`         — JSON lines on a unix socket; the agent plane's only path
+//! - `sign`          — one-shot: evaluate the Cedar PDP, then sign; prints one JSON line
+//!   that is exactly the argument list of the vault's `execute_value`
+//!
+//! `serve` and `sign` resolve the agent's action and destination *handles* against the
+//! owner's manifest, so a destination the manifest never issued cannot be expressed.
 //!
 //! Denials always carry an exact `ARPK:*` code.
 
@@ -14,8 +15,8 @@ use std::process::exit;
 
 use arpk_core::codes::Code;
 use arpk_core::MAX_RECEIPT_TTL_MS;
-use arpk_kernel::receipt::{self, ActionInput, ReceiptRequest};
-use arpk_kernel::{enforce, manifest, monitors, pdp, rpc, serve};
+use arpk_kernel::receipt::{self, ReceiptRequest};
+use arpk_kernel::{enforce, intent, manifest, monitors, pdp, rpc, serve};
 use serde::Serialize;
 
 const USAGE: &str = "\
@@ -24,17 +25,21 @@ arpkd — ARPK kernel (TEE: simulator)
   arpkd public-key
   arpkd manifest-hash --manifest <file.json>
   arpkd agent --rpc <url> --contract <account> --agent <hex32> [--now-ms <ms>]
-  arpkd serve --socket <path>
+  arpkd serve --socket <path> --manifest <file.json>
   arpkd sign --chain <id> --contract <account> --agent <hex32> --session <hex16>
-              --nonce <hex16> --manifest-hash <hex32> --context-hash <hex32>
-              --venue <id> --to <account> --asset <symbol> --amount <u128>
-              --memo-hash <hex32> --authority <full|degraded|askonly>
+              --nonce <hex16> --manifest <file.json> --manifest-hash <hex32>
+              --context-hash <hex32> --venue <id> --action <u32> [--dest <u32>]
+              --amount <u128> [--memo <text>]
+              --authority <full|degraded|askonly>
               [--agent-tier <standard|administrative>] [--venue-paused <bool>]
               [--stale <bool>] [--ttl-ms <ms>] [--issued-ms <ms>]
               [--agent-expiry-ms <ms>] [--exposure <u128>] [--exposure-cap <u128>]
               [--approval-threshold <u128>] [--approval-expiry-ms <ms>]
+              [--degraded-cap <u128>]
 
 Amounts and timestamps are decimal. Hashes are 0x-prefixed or bare hex.
+The agent names action and destination *handles* into the manifest, never a raw
+destination; the kernel resolves them and refuses an unissued handle.
 ";
 
 fn main() {
@@ -200,9 +205,16 @@ fn cmd_agent(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// Loads and parses the owner's manifest. The kernel resolves the agent's handles against it.
+fn load_manifest(path: &str) -> Result<manifest::Manifest, String> {
+    let text = std::fs::read_to_string(path).map_err(|e| format!("read {path}: {e}"))?;
+    serde_json::from_str(&text).map_err(|e| format!("parse manifest {path}: {e}"))
+}
+
 fn cmd_serve(args: &[String]) -> Result<(), String> {
     let socket = required(args, "--socket")?;
-    serve::serve(socket)
+    let manifest = load_manifest(required(args, "--manifest")?)?;
+    serve::serve(socket, manifest)
 }
 
 fn cmd_sign(args: &[String]) -> Result<(), String> {
@@ -218,15 +230,19 @@ fn cmd_sign(args: &[String]) -> Result<(), String> {
     let agent_hex = required(args, "--agent")?;
     let session_hex = required(args, "--session")?;
     let nonce_hex = required(args, "--nonce")?;
+    let manifest_path = required(args, "--manifest")?;
     let manifest_hex = required(args, "--manifest-hash")?;
     let context_hex = required(args, "--context-hash")?;
-    let memo_hex = required(args, "--memo-hash")?;
     let venue = required(args, "--venue")?;
-    let to = required(args, "--to")?;
-    let asset = required(args, "--asset")?;
-    let amount: u128 = required(args, "--amount")?
+    let action: u32 = required(args, "--action")?
         .parse()
-        .map_err(|e| format!("--amount: {e}"))?;
+        .map_err(|e| format!("--action: {e}"))?;
+    let dest: Option<u32> = match arg(args, "--dest") {
+        Some(v) => Some(v.parse().map_err(|e| format!("--dest: {e}"))?),
+        None => None,
+    };
+    let amount: Option<String> = arg(args, "--amount").map(str::to_string);
+    let memo: Option<String> = arg(args, "--memo").map(str::to_string);
     let authority = required(args, "--authority")?;
     let agent_tier = arg(args, "--agent-tier").unwrap_or("standard");
     let venue_paused = bool_arg(args, "--venue-paused", false)?;
@@ -282,18 +298,29 @@ fn cmd_sign(args: &[String]) -> Result<(), String> {
         "--manifest-hash",
     )?;
     let context_hash = fixed::<32>(&unhex(context_hex, 32, "--context-hash")?, "--context-hash")?;
-    let memo_hash = fixed::<32>(&unhex(memo_hex, 32, "--memo-hash")?, "--memo-hash")?;
+
+    // The manifest is the owner's. The kernel resolves the agent's handles against it and
+    // refuses a file that does not hash to the on-chain value the relayer fetched.
+    let manifest = load_manifest(manifest_path)?;
+    let held = manifest::manifest_hash(&manifest).map_err(|e| e.to_string())?;
+    if held != manifest_hash {
+        return Err(Code::ManifestHashMismatch.as_str().to_string());
+    }
+    if !manifest.value.venues.iter().any(|v| v.id == venue) {
+        return Err(Code::ActionUnclassified.as_str().to_string());
+    }
+    let handles = intent::Intent {
+        action,
+        dest,
+        amount,
+        memo,
+    };
+    let resolved =
+        intent::resolve(&manifest, &handles, chain, venue).map_err(|e| e.as_str().to_string())?;
+    let action = resolved.action;
 
     // The kernel is the policy decision point: it signs only what the Cedar PDP and the
     // monitors permit. `serve` runs the same path.
-    let action = ActionInput {
-        chain: chain.to_string(),
-        venue: venue.to_string(),
-        to: to.to_string(),
-        asset: asset.to_string(),
-        amount,
-        memo_hash,
-    };
     let intent = enforce::SignIntent {
         agent_id,
         session_id,
@@ -332,12 +359,12 @@ fn cmd_sign(args: &[String]) -> Result<(), String> {
     let out = SignOutput {
         agent_id: signed.receipt.agent_id.to_vec(),
         action: ActionOut {
-            chain: chain.to_string(),
-            venue: venue.to_string(),
-            to: to.to_string(),
-            asset: asset.to_string(),
-            amount: amount.to_string(),
-            memo_hash: memo_hash.to_vec(),
+            chain: intent.action.chain.clone(),
+            venue: intent.action.venue.clone(),
+            to: intent.action.to.clone(),
+            asset: intent.action.asset.clone(),
+            amount: intent.action.amount.to_string(),
+            memo_hash: intent.action.memo_hash.to_vec(),
         },
         receipt: ReceiptOut {
             agent_id: signed.receipt.agent_id.to_vec(),

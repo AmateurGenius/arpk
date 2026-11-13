@@ -3,12 +3,13 @@
 **What this is.** ARPK is a capability kernel for AI agent actions. Every effect requires a
 capability the agent cannot forge: a signed receipt bound to the exact action, the
 owner-signed manifest, and a nonce. The action surface is enumerated — the manifest declares
-the permitted actions and destinations, and the RPC schema has `deny_unknown_fields`, so an
-intent the manifest never issued cannot even be expressed. An injected "send to 0xATTACKER"
-fails as `ARPK:malformed` before the policy engine sees it. Authority attenuates with
-provenance: untrusted ingress degrades the session through the Authority Ledger, shrinking
-the caps. The contract bounds loss as the fourth layer — defense in depth, so a compromised
-kernel is still a bounded event.
+the permitted actions, destinations and venues, and the daemon resolves the agent's handles
+against it. The intent schema has `deny_unknown_fields` and no `to` field, so an intent the
+manifest never issued cannot even be expressed: an injected "send to 0xATTACKER" fails as
+`ARPK:malformed` before the policy engine sees it, and an unissued handle is
+`ARPK:action.unclassified`. Authority attenuates with provenance: untrusted ingress degrades
+the session through the Authority Ledger, shrinking the caps. The contract bounds loss as
+the fourth layer — defense in depth, so a compromised kernel is still a bounded event.
 
 **Why this matters.** The attack class the field is documenting is the confused deputy: an
 agent holding standing authority, manipulated into spending it. The capability model is the
@@ -68,7 +69,7 @@ environment its evidence ran in (`local`, `ci`, `testnet`). As of this build:
 | # | Claim | Status | Evidence |
 |---|---|---|---|
 | C1 | Receipt is a capability token | PASS | B02–B08, B20, B21; on-chain e2e green in CI |
-| C2 | Enumerated action surface | PASS | 7 tests incl. the unrepresentable-destination case; the schema rejects an injected destination as `ARPK:malformed` |
+| C2 | Enumerated action surface | PASS | daemon + library: an injected destination is `ARPK:malformed`; an unissued action/destination/venue handle is `ARPK:action.unclassified`; a manifest that does not hash to the on-chain value is `ARPK:manifest.hash_mismatch` |
 | C3 | Authority attenuates with provenance | PASS | Authority Ledger: 7 tests; degraded cap enforced in Cedar and in the kernel |
 | C4 | Verifiable at the effector | PASS | JS reimplementation reproduces 5/5 Rust golden vectors byte for byte |
 | C5 | Revocation is immediate on-chain | PASS | B07 |
@@ -93,7 +94,7 @@ that make the discipline unbreakable; their design is complete and they are on t
 |---|---|
 | `crates/arpk-core` | The executable spec: bound, caps, reason codes, EIP-712 receipts. No runtime dependencies; compiles to native and wasm. |
 | `contracts/near-vault` | The NEAR vault contract. Enforces the bound. Builds to a 351 KB wasm contract. |
-| `kernel/` | `arpkd`, the kernel daemon: Cedar PDP, k256 receipt signer, four monitors, `serve` (JSON lines over a unix socket) and the one-shot `sign` CLI. |
+| `kernel/` | `arpkd`, the kernel daemon: Cedar PDP, k256 receipt signer, four monitors, `serve` (JSON lines over a unix socket) and the one-shot `sign` CLI. Both resolve the agent's handles against the owner's manifest. |
 | `docs/golden-vectors/` | The independent implementation and vectors used to validate the EIP-712 hashing. |
 | `docs/` | Threat model, non-claims, library list. |
 | `tools/verify.py` | Generates `claims.json` from test output. Never hand-edit `claims.json`. |

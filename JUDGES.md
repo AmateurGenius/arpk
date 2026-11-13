@@ -16,16 +16,24 @@ SKIP: designed, not built, on the roadmap.
 ## Step 1 — the strongest claim: the unrepresentable destination
 
 `kernel/src/intent.rs` defines the intent schema. It has `deny_unknown_fields` and **no `to`
-field**:
+field**, and `arpkd serve` / `arpkd sign` resolve the agent's handles against the owner's
+manifest — so the schema the agent actually speaks is the enumerated one.
 
 ```
-echo '{"action":0,"to":"0xATTACKER","amount":"1"}' | cargo test -p arpkd intent::tests::a_legacy_field_is_malformed -- --nocapture
+cargo test -p arpkd serve::tests::an_injected_destination_is_malformed
+cargo test -p arpkd serve::tests::an_unissued_destination_handle_is_unclassified
+cargo test -p arpkd serve::tests::an_unissued_venue_is_unclassified
+cargo test -p arpkd serve::tests::a_manifest_hash_that_does_not_match_the_held_manifest_is_refused
 ```
 
-See: the parse fails outright. An injected destination cannot be expressed — there is no
-field for it. An *unissued handle* is `ARPK:action.unclassified` before the policy engine
-runs. This is the no-designation-without-authority property, and it is the first claim in
-the ledger.
+See: an injected `to` is `ARPK:malformed` — there is no field for it, so it cannot be
+expressed. An unissued action, destination or venue handle is `ARPK:action.unclassified`
+before the policy engine runs. A manifest file that does not hash to the on-chain value is
+`ARPK:manifest.hash_mismatch`. This is the no-designation-without-authority property, and it
+is the first claim in the ledger.
+
+The recorded `enumerated` trace in the Theater is emitted by the same `serve` path, not
+written by hand.
 
 ## Step 2 — receipt binding (the token)
 
@@ -88,7 +96,8 @@ node tools/build-site.mjs && node tools/check-bundle.mjs site/data
 ```
 
 See: the bundle hash matches its files, the traces validate against `arpk.trace/1`, and the
-secret scan is clean. The live dashboard is at <https://amateurgenius.github.io/arpk/>.
+secret scan is clean. A local build records `local: true` in `provenance.json`; the deployed
+bundle carries the CI run URL instead. The live dashboard is at <https://amateurgenius.github.io/arpk/>.
 
 ## Step 7 — what you cannot check locally
 

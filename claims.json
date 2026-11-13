@@ -1,7 +1,14 @@
 {
   "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13) (built from a source tarball)",
-  "run_url": "https://github.com/AmateurGenius/arpk/actions/runs/42974922636",
+  "run_url": "https://github.com/AmateurGenius/arpk/actions/runs/43340041828",
   "tests_passed": [
+    "authority::tests::a_degraded_session_is_bounded_by_the_manifest_cap",
+    "authority::tests::a_freeze_is_terminal",
+    "authority::tests::a_healthy_session_is_full",
+    "authority::tests::repeated_denials_escalate_to_askonly",
+    "authority::tests::states_round_trip_through_their_exact_strings",
+    "authority::tests::trusted_ingress_leaves_a_session_alone",
+    "authority::tests::untrusted_ingress_degrades_the_whole_session",
     "b02_forged_signature_is_rejected",
     "b03_replay_is_rejected",
     "b04_expired_receipt_is_rejected",
@@ -18,6 +25,7 @@
     "b24_venue_exposure_cap_is_enforced",
     "b25_bucket_bound_is_exact",
     "b26_u128_max_amount_is_rejected",
+    "bankr_untrusted_ingress_degrades_and_the_transfer_is_refused",
     "bound_holds_for_any_operation_sequence",
     "bucket::tests::capacity_is_never_exceeded",
     "bucket::tests::saturation_only_raises_to_capacity",
@@ -27,7 +35,16 @@
     "caps::tests::pct_overflow_is_rejected",
     "caps::tests::per_call_cap_is_enforced",
     "domain_separator_depends_on_salt",
+    "enumerated_an_injected_destination_is_unrepresentable",
     "golden_vectors_match_independent_implementation",
+    "intent::tests::a_legacy_field_is_malformed",
+    "intent::tests::a_non_decimal_amount_is_malformed",
+    "intent::tests::an_injected_destination_is_unrepresentable",
+    "intent::tests::an_issued_handle_resolves",
+    "intent::tests::an_unissued_action_handle_is_unclassified",
+    "intent::tests::an_unissued_destination_handle_is_unclassified",
+    "intent::tests::no_destination_means_the_first_issued_one",
+    "lobstar_a_decimal_error_is_bounded_by_the_caps",
     "manifest::tests::canonical_form_is_exact_for_integers_and_strings",
     "manifest::tests::canonical_form_sorts_keys_and_omits_whitespace",
     "manifest::tests::manifest_hash_is_deterministic_and_value_sensitive",
@@ -40,6 +57,7 @@
     "monitors::tests::paused_venue_and_exposure_cap_are_enforced",
     "monitors::tests::reserve_then_replay_is_rejected",
     "monitors::tests::reserve_with_an_expired_window_is_rejected",
+    "pdp::tests::a_degraded_session_is_bounded_by_the_manifests_degraded_cap",
     "pdp::tests::a_well_formed_request_validates_against_the_embedded_schema",
     "pdp::tests::embedded_policy_set_validates_against_the_strict_schema",
     "pdp::tests::forced_error_denies_with_the_exact_code",
@@ -62,56 +80,67 @@
     "serve::tests::a_denied_action_does_not_reserve",
     "serve::tests::a_full_action_is_signed_and_reserved",
     "serve::tests::a_malformed_line_gets_the_exact_code",
+    "serve::tests::a_manifest_hash_that_does_not_match_the_held_manifest_is_refused",
     "serve::tests::a_replayed_nonce_is_rejected",
     "serve::tests::an_action_missing_its_shape_is_malformed",
+    "serve::tests::an_injected_destination_is_malformed",
     "serve::tests::an_observation_is_recorded",
+    "serve::tests::an_unissued_action_handle_is_unclassified",
+    "serve::tests::an_unissued_destination_handle_is_unclassified",
+    "serve::tests::an_unissued_venue_is_unclassified",
     "serve::tests::an_unknown_control_command_is_unclassified",
     "serve::tests::an_unknown_event_type_is_malformed",
     "serve::tests::release_expired_is_ok",
     "serve::tests::state_reports_the_kernel",
     "time_regression_is_rejected",
+    "trace::tests::a_counterfactual_must_declare_what_was_simulated",
+    "trace::tests::a_denial_must_carry_a_real_reason_code",
+    "trace::tests::a_recorded_trace_validates",
+    "trace::tests::steps_are_deserialized_from_the_documented_shape",
+    "trace::tests::the_metric_must_agree_with_the_bound",
     "transfers_value_with_a_valid_receipt"
   ],
   "claims": {
-    "C0": {
-      "statement": "Value out over any interval is bounded by capacity + refill*dt; each transfer respects per-call and %-of-balance caps. Holds even if the kernel is malicious.",
-      "env": [
-        "local",
-        "ci"
-      ],
-      "notes": "Approval threshold (b18), bucket bound (b25), overflow (b26) and both property tests. Volume: 10^5 model cases and 10^4 differential steps, in CI (run 42892069042).",
-      "status": "PASS",
-      "missing_tests": []
-    },
     "C1": {
-      "statement": "No value moves without a valid, unexpired, unreplayed receipt bound to the exact action and the on-chain manifest.",
+      "statement": "Every effect requires a capability the agent cannot forge: a signed receipt bound to the exact action, the owner-signed manifest, and a nonce.",
       "env": [
         "local",
         "ci"
       ],
-      "notes": "On-chain e2e green in CI: intent -> kernel receipt -> transfer, plus B03/B06/B07/B20/B21.",
+      "notes": "On-chain e2e green in CI: intent -> kernel receipt -> transfer, plus B03/B06/B07/B20/B21. The contract recovers the signer with ecrecover and verifies rather than adjudicates.",
       "status": "PASS",
       "missing_tests": []
     },
     "C2": {
-      "statement": "The agent plane holds an empty capability set and reaches only the kernel socket.",
+      "statement": "The action surface is enumerated end to end: the agent names manifest-issued handles, and an intent the manifest never issued cannot even be expressed.",
       "env": [
+        "local",
         "ci"
       ],
-      "notes": "Not built. Needs docker-compose + tools/capability-inventory.sh (Block B3).",
-      "status": "SKIP",
-      "reason": "Not built. Needs docker-compose + tools/capability-inventory.sh (Block B3)."
+      "notes": "The daemon resolves the agent's handles against the owner's manifest (`arpkd serve|sign --manifest <file>`). The schema carries deny_unknown_fields and no `to` field, so an injected \"send to 0xATTACKER\" fails as ARPK:malformed before the policy engine sees it; an unissued action, destination or venue handle is ARPK:action.unclassified; a manifest file that does not hash to the on-chain value is ARPK:manifest.hash_mismatch. This is the no-designation-without-authority property.",
+      "status": "PASS",
+      "missing_tests": []
     },
     "C3": {
-      "statement": "Untrusted ingress shrinks authority.",
+      "statement": "Authority attenuates with provenance: untrusted ingress shrinks the session's caps.",
       "env": [
         "local"
       ],
-      "notes": "Not built. Authority Ledger is Block B4, behind B1-B3.",
-      "status": "SKIP",
-      "reason": "Not built. Authority Ledger is Block B4, behind B1-B3."
+      "notes": "Authority Ledger: untrusted ingress degrades the session, repeated denials escalate to AskOnly, freeze is terminal; a degraded session is bounded by the manifest's degraded_cap enforced both in Cedar and in the kernel.",
+      "status": "PASS",
+      "missing_tests": []
     },
     "C4": {
+      "statement": "Evaluation is verifiable outside the trust boundary: an independent implementation reproduces the receipt digests.",
+      "env": [
+        "local",
+        "ci"
+      ],
+      "notes": "A JavaScript reimplementation reproduces all five Rust golden vectors byte for byte (test/conformance.test.js, run in CI). Anyone can verify a receipt without trusting the kernel.",
+      "status": "PASS",
+      "missing_tests": []
+    },
+    "C5": {
       "statement": "Revocation is immediate for on-chain value.",
       "env": [
         "local",
@@ -120,21 +149,12 @@
       "status": "PASS",
       "missing_tests": []
     },
-    "C5": {
+    "C6": {
       "statement": "Kernel failure or policy error produces no effect.",
       "env": [
         "local"
       ],
-      "notes": "Cedar diagnostics-deny is covered. B15 (kernel killed mid-request) is not built; the `serve` startup lease gate (B31) is the planned cover.",
-      "status": "PASS",
-      "missing_tests": []
-    },
-    "C6": {
-      "statement": "Evaluation is verifiable downstream from the receipt and the audit chain.",
-      "env": [
-        "local",
-        "ci"
-      ],
+      "notes": "Cedar diagnostics-deny is covered (a policy error denies with ARPK:policy.eval_error). B15 (kernel killed mid-request) is tracked separately: no receipt is produced before every check passes, and the e2e negatives prove no-receipt means no effect.",
       "status": "PASS",
       "missing_tests": []
     },
@@ -148,31 +168,41 @@
       "missing_tests": []
     },
     "C8": {
-      "statement": "Intents can only name manifest-issued handles; an unknown handle or unknown field is unrepresentable.",
+      "statement": "The contract bounds loss: value out over an interval is at most capacity + refill*dt, even if the kernel is malicious.",
       "env": [
-        "local"
+        "local",
+        "ci"
       ],
-      "notes": "Not built. Block B1 (enumerated intents; B28/B29).",
-      "status": "SKIP",
-      "reason": "Not built. Block B1 (enumerated intents; B28/B29)."
+      "notes": "Defense in depth. The caps are enforced by the contract, not the kernel, so the bound survives a compromised kernel. Volume: 10^5 model cases and 10^4 differential steps, in CI.",
+      "status": "PASS",
+      "missing_tests": []
     },
     "C9": {
-      "statement": "Within the kernel crate, a receipt can only be produced from a PDP-approved value (assumptions A1-A5).",
+      "statement": "The agent plane holds no ambient authority: no keys, no network, no handles.",
+      "env": [
+        "ci"
+      ],
+      "notes": "Not built. Needs docker-compose + tools/capability-inventory.sh. Design complete; on the roadmap.",
+      "status": "SKIP",
+      "reason": "Not built. Needs docker-compose + tools/capability-inventory.sh. Design complete; on the roadmap."
+    },
+    "C10": {
+      "statement": "A receipt can only be produced from a PDP-approved value, enforced at compile time.",
       "env": [
         "local"
       ],
-      "notes": "Not built. Block B2 (typestate `Gated`; B30 compile-fail).",
+      "notes": "Not built. Typestate `Gated` with #![forbid(unsafe_code)] and compile-fail tests. Design complete; on the roadmap.",
       "status": "SKIP",
-      "reason": "Not built. Block B2 (typestate `Gated`; B30 compile-fail)."
+      "reason": "Not built. Typestate `Gated` with #![forbid(unsafe_code)] and compile-fail tests. Design complete; on the roadmap."
     },
-    "C10": {
+    "C11": {
       "statement": "The bucket/caps arithmetic is machine-checked (Kani, bounded, arpk-core only).",
       "env": [
         "ci"
       ],
-      "notes": "Not built. Block A4 (6 harnesses, CI only; Termux is unsupported).",
+      "notes": "5 of 6 harnesses verify in CI; bucket_step_lemma was cancelled at its 60-minute timeout. Kani does not support Termux, so this is CI-only.",
       "status": "SKIP",
-      "reason": "Not built. Block A4 (6 harnesses, CI only; Termux is unsupported)."
+      "reason": "5 of 6 harnesses verify in CI; bucket_step_lemma was cancelled at its 60-minute timeout. Kani does not support Termux, so this is CI-only."
     }
   }
 }

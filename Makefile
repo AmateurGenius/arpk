@@ -35,7 +35,7 @@ judge-check:
 	node tools/build-site.mjs
 	node tools/check-bundle.mjs site/data
 
-# Volume tier (claim C0). Runs in CI on a real Linux runner; on Termux the release build
+# Volume tier (claim C8). Runs in CI on a real Linux runner; on Termux the release build
 # alone is most of the free disk. Counts and seeds are in the CI log.
 fuzz:
 	PROPTEST_CASES=100000 cargo test --release -p arpk-core --test fuzz -- --nocapture

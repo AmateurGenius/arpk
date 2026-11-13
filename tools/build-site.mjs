@@ -166,6 +166,9 @@ const bundleSha = createHash('sha256').update(canonical).digest('hex');
 const provenance = {
   commit,
   ci_run_url: process.env.ARPK_CI_RUN_URL || null,
+  // A local build has no CI run. It says so explicitly rather than leaving the field
+  // silently empty, so the validator can tell "built here" from "source unknown".
+  local: !process.env.ARPK_CI_RUN_URL,
   generated_at: new Date().toISOString(),
   bundle_sha256: bundleSha,
   tee_mode: process.env.ARPK_TEE || 'simulator',

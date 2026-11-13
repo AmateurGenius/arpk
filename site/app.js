@@ -127,12 +127,13 @@ function viewProof() {
     </p>
 
     <div class="btn-row">
-      <a class="btn btn-primary" href="#/theater/bankr">▶ Watch an injection attack get stopped</a>
+      <a class="btn btn-primary" href="#/theater/enumerated">▶ Watch an injected destination get refused</a>
       <a class="btn" href="#/evidence">Read the evidence</a>
     </div>
 
     ${layer(1, 'No designation without authority',
-      'The intent schema has <span class="mono">deny_unknown_fields</span> and no <span class="mono">to</span> field. ' +
+      'The daemon resolves the agent\'s handles against the owner\'s manifest. The intent schema has ' +
+      '<span class="mono">deny_unknown_fields</span> and no <span class="mono">to</span> field. ' +
       'Intents name <em>handles</em> the manifest issued. An unissued handle is ' +
       '<span class="mono">ARPK:action.unclassified</span> before the policy engine runs; an injected destination ' +
       'is <span class="mono">ARPK:malformed</span>. The destination cannot be expressed at all.',
@@ -205,7 +206,13 @@ function viewProof() {
 
 function viewTheater(scenarioId) {
   const traces = state.traces || {};
-  const ids = Object.keys(traces);
+  // The recorded gate leads; the reconstructions follow.
+  const lead = ['enumerated'];
+  const ids = Object.keys(traces).sort((a, b) => {
+    const ia = lead.indexOf(a);
+    const ib = lead.indexOf(b);
+    return (ia < 0 ? lead.length : ia) - (ib < 0 ? lead.length : ib) || a.localeCompare(b);
+  });
   if (!ids.length) {
     return `<h1>Theater</h1>${notAvailable('the scenario traces')}`;
   }

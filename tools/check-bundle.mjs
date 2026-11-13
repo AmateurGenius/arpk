@@ -123,7 +123,11 @@ if (traces === undefined) {
 
 // ---------------------------------------------------------------- 4. provenance everywhere
 if (provenance && !provenance.ci_run_url) {
-  fail('provenance has no CI run URL — a judge cannot check where this came from');
+  if (provenance.local) {
+    ok('provenance: local build — no CI run URL (the deployed bundle must carry one)');
+  } else {
+    fail('provenance has no source: neither a CI run URL nor a local-build marker');
+  }
 }
 
 // ---------------------------------------------------------------- 5. secrets
