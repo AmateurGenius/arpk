@@ -34,10 +34,10 @@ blocked.
 **From the terminal** — an independent JavaScript implementation of the receipt format:
 
 ```
-npx arpk demo bankr                  # replay the Grok/Bankr reconstruction
-npx arpk verify bundle               # recompute the bundle hash, validate every trace
-npx arpk bound --capacity 5000 --refill 10 --seconds 60
-npx arpk claims                      # the claims matrix with its env tags
+npx arpk-cli demo bankr              # replay the Grok/Bankr reconstruction
+npx arpk-cli verify bundle           # recompute the bundle hash, validate every trace
+npx arpk-cli bound --capacity 5000 --refill 10 --seconds 60
+npx arpk-cli claims                  # the claims matrix with its env tags
 ```
 
 **From the repo**:
