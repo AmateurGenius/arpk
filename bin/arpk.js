@@ -94,9 +94,13 @@ function cmdDemo(id) {
 
   const lines = [`ARPK · scenario: ${trace.title}`];
   if (!has('--json')) {
-    lines.push(
-      `  [${trace.mode.toUpperCase()}] [${trace.counterfactual ? 'COUNTERFACTUAL' : 'RECORDED'}] [SIMULATED: ${trace.simulated.join(', ')}]`,
-    );
+    // A recorded trace has nothing simulated; printing "[SIMULATED: ]" would imply it did.
+    const tags = [
+      trace.mode.toUpperCase(),
+      trace.counterfactual ? 'COUNTERFACTUAL' : 'RECORDED',
+      ...(trace.simulated.length ? [`SIMULATED: ${trace.simulated.join(', ')}`] : []),
+    ];
+    lines.push(`  [${tags.join('] [')}]`);
     for (const s of trace.steps) {
       const verdict = s.verdict ? `  ${s.verdict.toUpperCase()}` : '';
       const reason = s.reason ? ` ${s.reason}` : '';
