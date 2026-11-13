@@ -1,4 +1,4 @@
-//! Property tests for the bound (claim C0).
+//! Property tests for the bound (claim C8).
 //!
 //! The property is the same in both modes: whether the kernel is honest or signs
 //! everything an attacker asks for, total outflow over any interval is bounded by

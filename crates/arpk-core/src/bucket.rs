@@ -1,4 +1,4 @@
-//! Token bucket. The core of claim C0.
+//! Token bucket. The core of claim C8 (the contract-enforced bound).
 //!
 //! Invariant: `tokens <= capacity` always. Refill is floored (integer division), so it
 //! can never over-refill. Therefore total outflow over any interval of length Δ is

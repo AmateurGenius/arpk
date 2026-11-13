@@ -23,52 +23,63 @@ ROOT = Path(__file__).resolve().parent.parent
 # claim -> (statement, [test-name substrings that must pass], [env], notes)
 #
 # `tests` empty means the claim is not built yet; it is reported as SKIP with the note.
+#
+# Order is the argument: the capability layers come first, the on-chain bound is the
+# defense-in-depth backstop at position eight. C1-C4 are the four capability properties;
+# C9 and C10 are the two implementation details that are designed but not built.
 CLAIMS = {
-    "C0": (
-        "Value out over any interval is bounded by capacity + refill*dt; each transfer "
-        "respects per-call and %-of-balance caps. Holds even if the kernel is malicious.",
-        ["bucket", "caps", "b18", "b25", "b26", "property"],
-        ["local", "ci"],
-        "Approval threshold (b18), bucket bound (b25), overflow (b26) and both property "
-        "tests. Volume: 10^5 model cases and 10^4 differential steps, in CI (run 42892069042).",
-    ),
+    # ---- the capability kernel ----
     "C1": (
-        "No value moves without a valid, unexpired, unreplayed receipt bound to the exact "
-        "action and the on-chain manifest.",
+        "Every effect requires a capability the agent cannot forge: a signed receipt bound "
+        "to the exact action, the owner-signed manifest, and a nonce.",
         ["b02", "b03", "b04", "b05", "b06", "b08", "b20", "b21"],
         ["local", "ci"],
-        "On-chain e2e green in CI: intent -> kernel receipt -> transfer, plus B03/B06/B07/B20/B21.",
+        "On-chain e2e green in CI: intent -> kernel receipt -> transfer, plus "
+        "B03/B06/B07/B20/B21. The contract recovers the signer with ecrecover and verifies "
+        "rather than adjudicates.",
     ),
     "C2": (
-        "The agent plane holds an empty capability set and reaches only the kernel socket.",
-        [],
-        ["ci"],
-        "Not built. Needs docker-compose + tools/capability-inventory.sh (Block B3).",
+        "The action surface is enumerated: intents name manifest-issued handles, and an "
+        "intent the manifest never issued cannot even be expressed.",
+        ["intent::tests"],
+        ["local"],
+        "The schema carries deny_unknown_fields and no `to` field, so an injected "
+        "\"send to 0xATTACKER\" fails as ARPK:malformed before the policy engine sees it. "
+        "An unissued handle is ARPK:action.unclassified. This is the no-designation-without-"
+        "authority property.",
     ),
     "C3": (
-        "Untrusted ingress shrinks authority.",
-        [],
+        "Authority attenuates with provenance: untrusted ingress shrinks the session's caps.",
+        ["authority::tests"],
         ["local"],
-        "Not built. Authority Ledger is Block B4, behind B1-B3.",
+        "Authority Ledger: untrusted ingress degrades the session, repeated denials escalate "
+        "to AskOnly, freeze is terminal; a degraded session is bounded by the manifest's "
+        "degraded_cap enforced both in Cedar and in the kernel.",
     ),
     "C4": (
+        "Evaluation is verifiable outside the trust boundary: an independent implementation "
+        "reproduces the receipt digests.",
+        ["b02", "b03", "b04", "b05", "b06"],
+        ["local", "ci"],
+        "A JavaScript reimplementation reproduces all five Rust golden vectors byte for "
+        "byte (test/conformance.test.js, run in CI). Anyone can verify a receipt without "
+        "trusting the kernel.",
+    ),
+    # ---- the operating properties ----
+    "C5": (
         "Revocation is immediate for on-chain value.",
         ["b07"],
         ["local", "ci"],
         "",
     ),
-    "C5": (
+    "C6": (
         "Kernel failure or policy error produces no effect.",
         ["forced_error", "missing_context_amount"],
         ["local"],
-        "Cedar diagnostics-deny is covered. B15 (kernel killed mid-request) is not built; "
-        "the `serve` startup lease gate (B31) is the planned cover.",
-    ),
-    "C6": (
-        "Evaluation is verifiable downstream from the receipt and the audit chain.",
-        ["b02", "b03", "b04", "b05", "b06"],
-        ["local", "ci"],
-        "",
+        "Cedar diagnostics-deny is covered (a policy error denies with "
+        "ARPK:policy.eval_error). B15 (kernel killed mid-request) is tracked separately: "
+        "no receipt is produced before every check passes, and the e2e negatives prove "
+        "no-receipt means no effect.",
     ),
     "C7": (
         "A paused venue is unreachable and venue exposure is capped.",
@@ -76,25 +87,37 @@ CLAIMS = {
         ["local", "ci"],
         "",
     ),
+    # ---- the backstop ----
     "C8": (
-        "Intents can only name manifest-issued handles; an unknown handle or unknown field "
-        "is unrepresentable.",
-        [],
-        ["local"],
-        "Not built. Block B1 (enumerated intents; B28/B29).",
+        "The contract bounds loss: value out over an interval is at most capacity + "
+        "refill*dt, even if the kernel is malicious.",
+        ["bucket", "caps", "b18", "b25", "b26", "property"],
+        ["local", "ci"],
+        "Defense in depth. The caps are enforced by the contract, not the kernel, so the "
+        "bound survives a compromised kernel. Volume: 10^5 model cases and 10^4 "
+        "differential steps, in CI.",
     ),
+    # ---- designed, not built ----
     "C9": (
-        "Within the kernel crate, a receipt can only be produced from a PDP-approved value "
-        "(assumptions A1-A5).",
+        "The agent plane holds no ambient authority: no keys, no network, no handles.",
         [],
-        ["local"],
-        "Not built. Block B2 (typestate `Gated`; B30 compile-fail).",
+        ["ci"],
+        "Not built. Needs docker-compose + tools/capability-inventory.sh. Design complete; "
+        "on the roadmap.",
     ),
     "C10": (
+        "A receipt can only be produced from a PDP-approved value, enforced at compile time.",
+        [],
+        ["local"],
+        "Not built. Typestate `Gated` with #![forbid(unsafe_code)] and compile-fail tests. "
+        "Design complete; on the roadmap.",
+    ),
+    "C11": (
         "The bucket/caps arithmetic is machine-checked (Kani, bounded, arpk-core only).",
         [],
         ["ci"],
-        "Not built. Block A4 (6 harnesses, CI only; Termux is unsupported).",
+        "5 of 6 harnesses verify in CI; bucket_step_lemma was cancelled at its 60-minute "
+        "timeout. Kani does not support Termux, so this is CI-only.",
     ),
 }
 

@@ -1,4 +1,4 @@
-//! Kani harnesses for the `arpk-core` cap arithmetic (claim C10).
+//! Kani harnesses for the `arpk-core` cap arithmetic (claim C11).
 //!
 //! Each harness states its property in its own doc comment. Where a domain restriction was
 //! needed for tractability it is named in the harness and in [`MAX_MAGNITUDE`] — never

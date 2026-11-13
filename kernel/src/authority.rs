@@ -1,4 +1,4 @@
-//! Authority Ledger (lite) — untrusted ingress shrinks authority (claim C3).
+//! Authority Ledger (lite) — untrusted ingress shrinks authority (claim C3, attenuation).
 //!
 //! The ledger is a *conservative session watermark*, not a per-token taint tracker: any
 //! untrusted ingress degrades the whole session. That is deliberate — an LLM's context

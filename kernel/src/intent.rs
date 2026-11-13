@@ -1,4 +1,4 @@
-//! Enumerated intents (claim C8).
+//! Enumerated intents (claim C2 — the no-designation-without-authority property).
 //!
 //! The agent names *handles* the owner's manifest issued, never raw strings. An action is an
 //! index into `manifest.permitted_actions`; a destination is an index into
@@ -10,7 +10,7 @@
 //! slip through as harmless extra data — that is `ARPK:malformed`.
 //!
 //! Scope, stated honestly: handles restrict *which* actions and destinations exist.
-//! `amount` stays free-form and is bounded by the caps (C0), not by enumeration.
+//! `amount` stays free-form and is bounded by the caps (C8), not by enumeration.
 
 use serde::Deserialize;
 

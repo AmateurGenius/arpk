@@ -1,17 +1,28 @@
-# ARPK
+# ARPK — Agentic Runtime Policy Kernel
 
-Agents fail for many reasons. ARPK makes the cost of failure a number the owner chose in
-advance.
+**What this is.** ARPK is a capability kernel for AI agent actions. Every effect requires a
+capability the agent cannot forge: a signed receipt bound to the exact action, the
+owner-signed manifest, and a nonce. The action surface is enumerated — the manifest declares
+the permitted actions and destinations, and the RPC schema has `deny_unknown_fields`, so an
+intent the manifest never issued cannot even be expressed. An injected "send to 0xATTACKER"
+fails as `ARPK:malformed` before the policy engine sees it. Authority attenuates with
+provenance: untrusted ingress degrades the session through the Authority Ledger, shrinking
+the caps. The contract bounds loss as the fourth layer — defense in depth, so a compromised
+kernel is still a bounded event.
 
-ARPK is a capability kernel for agent actions with an on-chain bound. The agent holds no
-authority and can only name actions and destinations the owner's manifest issued. Every
-effect needs a one-shot, action-bound receipt that the vault verifies. The vault caps loss
-on its own, so the bound holds even if the kernel is wrong. The cap arithmetic that both
-run is machine-checked.
+**Why this matters.** The attack class the field is documenting is the confused deputy: an
+agent holding standing authority, manipulated into spending it. The capability model is the
+fifty-year-old answer. ARPK implements three of its four properties — enumerated designation,
+capability verification at the effector, and attenuation — plus an on-chain bound as defense
+in depth. Process containment and compile-time typestate enforcement are the two remaining
+implementation details; their design is complete and they are on the roadmap.
 
-Concretely: ARPK is a receipt-enforced vault on NEAR. An agent can *request* a value
-movement, but the movement only happens if a kernel key signs a receipt for that exact
-action, and the contract enforces the owner's caps before any value moves.
+**What it does not claim.** It does not claim formal verification of the kernel (Kani is 5
+of 6 harnesses green; one proof cancelled at timeout). It does not claim process containment
+or compile-time typestate enforcement (both are scaffolding, labeled SKIP in the claims
+ledger). It does not detect injections. It does not prevent a malicious owner. It bounds what
+the agent can cause and caps the loss if the kernel is compromised. The non-claims list is
+published verbatim below.
 
 ## Try it
 
@@ -54,26 +65,27 @@ library sign a receipt, and submits it with a function-call key — the P0 path,
 `claims.json` is generated from measured results and committed. Each claim carries the
 environment its evidence ran in (`local`, `ci`, `testnet`). As of this build:
 
-| Claim | Status | Env | Evidence |
+| # | Claim | Status | Evidence |
 |---|---|---|---|
-| C0 bound | PASS | local, ci | 4 proptest properties + bucket/caps unit tests; fuzz volume below target |
-| C1 receipt binding | PASS | local, ci | B02-B08, B20, B21; on-chain e2e green in CI |
-| C2 containment | SKIP | ci | not built — needs Docker (Block B3) |
-| C3 untrusted ingress shrinks authority | SKIP | local | not built — Authority Ledger (Block B4) |
-| C4 revocation | PASS | local, ci | B07 |
-| C5 kernel failure produces no effect | PASS | local | Cedar diagnostics → deny; B15 (kernel death) not built |
-| C6 evaluation verifiable downstream | PASS | local, ci | B02-B06 |
-| C7 paused venue unreachable | PASS | local, ci | B17, B24 |
-| C8 enumerated intents | SKIP | local | not built (Block B1; B28/B29) |
-| C9 typestate gate | SKIP | local | not built (Block B2; B30) |
-| C10 Kani on the cap arithmetic | SKIP | ci | not built (Block A4; 6 harnesses) |
+| C1 | Receipt is a capability token | PASS | B02–B08, B20, B21; on-chain e2e green in CI |
+| C2 | Enumerated action surface | PASS | 7 tests incl. the unrepresentable-destination case; the schema rejects an injected destination as `ARPK:malformed` |
+| C3 | Authority attenuates with provenance | PASS | Authority Ledger: 7 tests; degraded cap enforced in Cedar and in the kernel |
+| C4 | Verifiable at the effector | PASS | JS reimplementation reproduces 5/5 Rust golden vectors byte for byte |
+| C5 | Revocation is immediate on-chain | PASS | B07 |
+| C6 | Kernel failure produces no effect | PASS | Cedar diagnostics → deny; B15 tracked separately |
+| C7 | Venue pause + exposure cap | PASS | B17, B24 |
+| C8 | The contract bounds loss | PASS | fuzz 10^5 sequences · differential 10^4 steps · B18/B25/B26 |
+| C9 | Process containment | SKIP | not built — design complete, roadmap |
+| C10 | Typestate gate | SKIP | not built — design complete, roadmap |
+| C11 | Kani formal verification | 5/6 | `bucket_step_lemma` cancelled at its 60-minute timeout |
 
 A `SKIP` is an honest skip, not a hidden failure.
 
-**Only C0 bounds loss independently of the kernel.** C8, C9, C2 and C3 reduce how often
-the bound is approached. C1 and C6 make decisions attributable and checkable. C10 backs
-C0. This is the claim hierarchy: the on-chain bound is the only property that survives a
-kernel bug or a compromised kernel; the other layers reduce how often it is approached.
+**C8 is the backstop; C1–C4 are the discipline.** The capability layers are what make an
+attack unrepresentable or unattributable in the first place. The on-chain bound is the one
+property that survives a kernel bug or a compromised kernel — it is defense in depth, not the
+primary mechanism. C9 and C10 (containment, typestate) are the two implementation details
+that make the discipline unbreakable; their design is complete and they are on the roadmap.
 
 ## What is here
 

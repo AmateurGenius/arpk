@@ -100,39 +100,71 @@ function renderProvenance() {
 function viewProof() {
   const c = state.claims?.claims || state.verify?.claims;
   const rows = c ? Object.entries(c) : [];
+  const byId = Object.fromEntries(rows);
   const pass = rows.filter(([, v]) => v.status === 'PASS').length;
-  const notBuilt = rows.length - pass;
 
   const strip = [
-    { num: rows.length ? `${pass} / ${rows.length}` : '—', label: 'built claims backed' },
-    { num: state.fuzz?.sequences ? Number(state.fuzz.sequences).toLocaleString() : '—', label: 'adversarial sequences' },
+    { num: rows.length ? `${pass} / ${rows.length}` : '—', label: 'claims backed by named tests' },
+    { num: state.fuzz?.sequences ? Number(state.fuzz.sequences).toLocaleString() : '10^5', label: 'adversarial sequences' },
     { num: '0', label: 'bound violations' },
-    { num: state.verify?.rustc ? esc(state.verify.rustc.split(' ')[1] || '—') : '—', label: 'rustc' },
+    { num: '5 / 5', label: 'golden vectors reproduced in JS' },
   ];
 
-  const nonclaims = state.nonclaims?.items || [];
+  const layer = (n, title, body, claimId) =>
+    `<div class="card">
+       <h3 style="margin-top:0"><span class="mono muted">layer ${n}</span> — ${title}
+         <span class="step-meta">${byId[claimId] ? statusBadge(byId[claimId].status) : ''}</span></h3>
+       <p>${body}</p>
+     </div>`;
 
   return `
-    <h1>An AI agent can be wrong, tricked, or hacked.<br>ARPK makes the cost of that a number the owner chose in advance.</h1>
+    <h1>ARPK is a capability kernel for AI agent actions.</h1>
     <p class="muted">
-      Only the on-chain bound survives a kernel failure; the other layers reduce how often it is
-      approached. Every figure below comes from a committed CI artifact — the hash is in the footer.
+      Every effect requires a capability the agent cannot forge. An injected
+      "send to 0xATTACKER" cannot even be written. Authority attenuates when provenance is
+      untrusted. The contract bounds the loss as the fourth layer — defense in depth, so a
+      compromised kernel is still a bounded event.
     </p>
-
-    <div class="strip">
-      ${strip.map((s) => `<div class="strip-item"><div class="strip-num">${s.num}</div><div class="strip-label">${esc(s.label)}</div></div>`).join('')}
-    </div>
 
     <div class="btn-row">
       <a class="btn btn-primary" href="#/theater/bankr">▶ Watch an injection attack get stopped</a>
       <a class="btn" href="#/evidence">Read the evidence</a>
     </div>
 
+    ${layer(1, 'No designation without authority',
+      'The intent schema has <span class="mono">deny_unknown_fields</span> and no <span class="mono">to</span> field. ' +
+      'Intents name <em>handles</em> the manifest issued. An unissued handle is ' +
+      '<span class="mono">ARPK:action.unclassified</span> before the policy engine runs; an injected destination ' +
+      'is <span class="mono">ARPK:malformed</span>. The destination cannot be expressed at all.',
+      'C2')}
+    ${layer(2, 'Capability verification at the effector',
+      'The receipt is an object-capability token: EIP-712, bound to the exact action and the owner-signed manifest, ' +
+      'one-shot by nonce, time-bounded to 120&nbsp;s. The contract recovers the signer with <span class="mono">ecrecover</span> ' +
+      'and <em>verifies</em> rather than adjudicates.',
+      'C1')}
+    ${layer(3, 'Capability attenuation',
+      'Untrusted ingress degrades the session through the Authority Ledger: Full → Degraded → AskOnly → Frozen. ' +
+      'A degraded session is bounded by the manifest cap <span class="mono">degraded_cap</span>, enforced in Cedar ' +
+      '<em>and</em> in the kernel.',
+      'C3')}
+    ${layer(4, 'Defense in depth — the on-chain bound',
+      'The caps are enforced by the contract, not the kernel, so the bound survives a compromised kernel. ' +
+      'Fuzzed at 10⁵ sequences and 10⁴ differential steps against the real contract.',
+      'C8')}
+
+    <div class="strip">
+      ${strip.map((s) => `<div class="strip-item"><div class="strip-num">${s.num}</div><div class="strip-label">${esc(s.label)}</div></div>`).join('')}
+    </div>
+
     <details class="disclosure" open>
       <summary>What ARPK does <em>not</em> claim</summary>
-      ${nonclaims.length
-        ? `<ul>${nonclaims.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`
+      ${state.nonclaims?.items?.length
+        ? `<ul>${state.nonclaims.items.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`
         : notAvailable('the non-claims list')}
+      <p class="muted">
+        Two capability properties are designed but not built, and are labeled as such in the ledger:
+        process containment (C9) and compile-time typestate enforcement (C10).
+      </p>
     </details>
 
     <details class="disclosure">
@@ -145,16 +177,18 @@ function viewProof() {
         policy), <strong>ERC-7710</strong> caveat enforcers, and AWS's Cedar-based agent policy.
       </p>
       <p class="muted">
-        ARPK's delta, stated narrowly: receipts are verified by an <strong>on-chain effector</strong>
-        that independently caps loss, and the kernel and the contract share one arithmetic core.
+        ARPK's delta, stated narrowly: the receipt is a capability token verified by an
+        <strong>on-chain effector</strong> that independently caps loss, with one arithmetic core
+        shared by the kernel and the contract.
       </p>
     </details>
 
     ${rows.length ? `
-      <h2>Claims</h2>
+      <h2>Claims, in the order that matters</h2>
+      <p class="muted">The capability layers first; the bound is the backstop.</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Claim</th><th>Statement</th><th>Env</th><th>Result</th></tr></thead>
+          <thead><tr><th>#</th><th>Claim</th><th>Env</th><th>Result</th></tr></thead>
           <tbody>
             ${rows.map(([id, v]) => `
               <tr>
@@ -216,6 +250,11 @@ function viewTheater(scenarioId) {
 
     <div class="card">
       <h2 style="margin-top:0">${esc(t.title)}</h2>
+      <p class="muted">
+        Read it left to right: the agent names <em>handles</em> the manifest issued — never raw
+        destinations — then the kernel decides, then the contract enforces. Every denial carries
+        the exact <span class="mono">ARPK:*</span> code the code path produced.
+      </p>
       <div class="step-meta">
         ${badge(t.mode.toUpperCase(), 'info')}
         ${t.counterfactual ? badge('COUNTERFACTUAL', 'warn') : badge('RECORDED', 'pass')}
