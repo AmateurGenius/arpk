@@ -60,7 +60,7 @@ function readStdin() {
 
 function loadBundle(dir = DEFAULT_BUNDLE) {
   const p = join(dir, 'provenance.json');
-  if (!existsSync(p)) fail(`no evidence bundle at ${dir} — run tools/build-site.mjs in the repo`);
+  if (!existsSync(p)) fail(`no evidence bundle at ${dir} — this copy of arpk-cli ships none; build one with tools/build-site.mjs and point at it, e.g. \`arpk verify bundle <dir>\``);
   return {
     dir,
     provenance: JSON.parse(readFileSync(p, 'utf8')),

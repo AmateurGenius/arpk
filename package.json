@@ -1,6 +1,6 @@
 {
   "name": "arpk-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ARPK — verify the receipts and the bound of a capability kernel for agent actions. Independent JS implementation of the EIP-712 receipt format; no server, no keys.",
   "license": "MIT",
   "type": "module",

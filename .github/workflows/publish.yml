@@ -26,7 +26,22 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm test
-          npm pack --dry-run
+      # The package ships the evidence bundle (`files` includes data/), so `claims` and
+      # `demo` work from an install. Build it here from this commit rather than fetching
+      # the deployed site, so the bundle's provenance matches the published code.
+      - name: run the battery and generate the claims ledger
+        run: PROPTEST_CASES=8 python3 tools/verify.py
+      - name: scenario traces
+        run: cargo test -p arpkd --test scenarios
+        env:
+          ARPK_SCENARIO_OUT: data/traces
+      - name: build the package's evidence bundle
+        run: node tools/build-site.mjs --out data
+        env:
+          ARPK_CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARPK_FUZZ_CASES: "100000"
+      - name: pack (includes the bundle)
+        run: npm pack --dry-run
       - name: publish with provenance
         run: npm publish --provenance --access public
         env:

@@ -7,6 +7,9 @@ target/
 node_modules/
 wasm-build.log
 
+# The npm package's vendored evidence bundle, built by the publish workflow.
+/data/
+
 # The evidence bundle is produced by CI (tools/build-site.mjs) and deployed to Pages.
 # It is never hand-edited and never committed.
 site/data/
